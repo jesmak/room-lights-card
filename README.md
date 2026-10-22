@@ -75,6 +75,9 @@ Each item of `scenes` is an entity id, or an object with these keys:
 
 Everything can be set in the card's visual editor.
 
+Adaptive Lighting makes four switches for each room, and the editor offers them all. Pick the main one, the one without
+Sleep Mode, Adapt Brightness or Adapt Color in its name. The others turn only one part of it on and off.
+
 ## What it shows
 
 - **The header:** the room's icon, in the colour of the first light that is on, its name, and its state, such as
