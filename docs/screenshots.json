@@ -1,0 +1,284 @@
+{
+    "states": {
+        "light.living_room_downlights": {
+            "state": "on",
+            "attributes": {
+                "friendly_name": "Living room downlights",
+                "supported_color_modes": ["color_temp", "xy"],
+                "color_mode": "color_temp",
+                "brightness": 179,
+                "rgb_color": [255, 196, 135]
+            }
+        },
+        "light.living_room_led_strip": {
+            "state": "on",
+            "attributes": {
+                "friendly_name": "Living room LED strip",
+                "supported_color_modes": ["rgbw"],
+                "color_mode": "rgbw",
+                "brightness": 115,
+                "rgb_color": [150, 90, 220]
+            }
+        },
+        "switch.adaptive_lighting_living_room": {
+            "state": "on",
+            "attributes": { "friendly_name": "Adaptive Lighting: Living room", "icon": "mdi:theme-light-dark" }
+        },
+        "scene.living_room_bright": {
+            "state": "2026-10-14T18:00:00+03:00",
+            "attributes": {
+                "friendly_name": "Living room bright",
+                "icon": "mdi:lightbulb-on",
+                "entity_id": ["light.living_room_downlights", "light.living_room_led_strip"]
+            }
+        },
+        "scene.living_room_dim": {
+            "state": "2026-10-14T18:00:00+03:00",
+            "attributes": {
+                "friendly_name": "Living room dim",
+                "icon": "mdi:lightbulb-on-30",
+                "entity_id": ["light.living_room_downlights", "light.living_room_led_strip"]
+            }
+        },
+        "scene.led_strip_static": {
+            "state": "2026-10-14T18:00:00+03:00",
+            "attributes": {
+                "friendly_name": "LED strip static",
+                "icon": "mdi:led-strip-variant",
+                "entity_id": ["light.living_room_led_strip"]
+            }
+        },
+        "scene.led_strip_party": {
+            "state": "2026-10-14T18:00:00+03:00",
+            "attributes": {
+                "friendly_name": "LED strip party",
+                "icon": "mdi:music",
+                "entity_id": ["light.living_room_led_strip", "select.led_strip_palette"]
+            }
+        },
+        "light.office_ceiling": {
+            "state": "on",
+            "attributes": {
+                "friendly_name": "Office ceiling",
+                "supported_color_modes": ["color_temp"],
+                "color_mode": "color_temp",
+                "brightness": 255,
+                "rgb_color": [235, 240, 255]
+            }
+        },
+        "light.office_ceiling_ring": {
+            "state": "off",
+            "attributes": { "friendly_name": "Office ceiling ring", "supported_color_modes": ["color_temp", "xy"] }
+        },
+        "light.office_shelf_strip": {
+            "state": "on",
+            "attributes": {
+                "friendly_name": "Office shelf strip",
+                "supported_color_modes": ["rgbw"],
+                "color_mode": "rgbw",
+                "brightness": 77,
+                "rgb_color": [80, 170, 255]
+            }
+        },
+        "light.office_desk_lamp": {
+            "state": "on",
+            "attributes": {
+                "friendly_name": "Office desk lamp",
+                "supported_color_modes": ["onoff"],
+                "color_mode": "onoff",
+                "icon": "mdi:desk-lamp"
+            }
+        },
+        "scene.office_bright": {
+            "state": "2026-10-14T18:00:00+03:00",
+            "attributes": {
+                "friendly_name": "Office bright",
+                "icon": "mdi:lightbulb-on",
+                "entity_id": ["switch.office_wall_relay", "light.office_ceiling", "light.office_ceiling_ring"]
+            }
+        },
+        "scene.office_dim": {
+            "state": "2026-10-14T18:00:00+03:00",
+            "attributes": {
+                "friendly_name": "Office dim",
+                "icon": "mdi:lightbulb-on-30",
+                "entity_id": ["light.office_ceiling", "light.office_ceiling_ring"]
+            }
+        },
+        "scene.office_music": {
+            "state": "2026-10-14T18:00:00+03:00",
+            "attributes": {
+                "friendly_name": "Office music",
+                "icon": "mdi:music",
+                "entity_id": ["light.office_ceiling_ring", "light.office_shelf_strip"]
+            }
+        },
+        "scene.shelf_strip_night": {
+            "state": "2026-10-14T18:00:00+03:00",
+            "attributes": { "friendly_name": "Shelf strip night", "icon": "mdi:weather-night", "entity_id": ["light.office_shelf_strip"] }
+        },
+        "scene.shelf_strip_bright": {
+            "state": "2026-10-14T18:00:00+03:00",
+            "attributes": {
+                "friendly_name": "Shelf strip bright",
+                "icon": "mdi:led-strip-variant",
+                "entity_id": ["light.office_shelf_strip"]
+            }
+        },
+        "light.porch_lanterns": {
+            "state": "on",
+            "attributes": {
+                "friendly_name": "Porch lanterns",
+                "supported_color_modes": ["color_temp", "xy"],
+                "color_mode": "color_temp",
+                "brightness": 153,
+                "rgb_color": [255, 180, 110]
+            }
+        },
+        "light.floodlight": {
+            "state": "off",
+            "attributes": { "friendly_name": "Floodlight", "supported_color_modes": ["onoff"], "icon": "mdi:light-flood-down" }
+        },
+        "light.terrace_lights": {
+            "state": "on",
+            "attributes": {
+                "friendly_name": "Terrace lights",
+                "supported_color_modes": ["onoff"],
+                "color_mode": "onoff",
+                "icon": "mdi:outdoor-lamp"
+            }
+        },
+        "switch.terrace_socket": {
+            "state": "on",
+            "attributes": { "friendly_name": "Terrace socket", "icon": "mdi:power-socket-eu" }
+        },
+        "light.string_lights": {
+            "state": "off",
+            "attributes": { "friendly_name": "String lights", "supported_color_modes": ["onoff"], "icon": "mdi:string-lights" }
+        },
+        "scene.lanterns_bright": {
+            "state": "2026-10-14T18:00:00+03:00",
+            "attributes": { "friendly_name": "Lanterns bright", "icon": "mdi:lightbulb-on", "entity_id": ["light.porch_lanterns"] }
+        },
+        "scene.lanterns_dim": {
+            "state": "2026-10-14T18:00:00+03:00",
+            "attributes": { "friendly_name": "Lanterns dim", "icon": "mdi:lightbulb-on-30", "entity_id": ["light.porch_lanterns"] }
+        },
+        "scene.movie_night": {
+            "state": "2026-10-14T18:00:00+03:00",
+            "attributes": {
+                "friendly_name": "Movie night",
+                "icon": "mdi:movie-open",
+                "entity_id": ["light.living_room_downlights", "light.office_ceiling"]
+            }
+        },
+        "script.christmas_lights": {
+            "state": "off",
+            "attributes": { "friendly_name": "Christmas lights", "icon": "mdi:pine-tree" }
+        },
+        "script.disco": {
+            "state": "off",
+            "attributes": { "friendly_name": "Disco", "icon": "mdi:palette" }
+        }
+    },
+    "shots": [
+        {
+            "name": "living-room",
+            "width": 500,
+            "card": {
+                "type": "custom:room-lights-card",
+                "name": "Living room",
+                "icon": "mdi:sofa",
+                "lights": [
+                    { "entity": "light.living_room_downlights", "name": "Downlights" },
+                    { "entity": "light.living_room_led_strip", "name": "LED strip" }
+                ],
+                "scenes": [
+                    { "entity": "scene.living_room_bright", "name": "Bright" },
+                    { "entity": "scene.living_room_dim", "name": "Dim" },
+                    { "entity": "scene.led_strip_static", "name": "Static" },
+                    { "entity": "scene.led_strip_party", "name": "Party" }
+                ],
+                "adaptive_lighting": "switch.adaptive_lighting_living_room"
+            }
+        },
+        {
+            "name": "office",
+            "width": 500,
+            "card": {
+                "type": "custom:room-lights-card",
+                "name": "Office",
+                "icon": "mdi:desk",
+                "lights": [
+                    { "entity": "light.office_ceiling", "name": "Ceiling" },
+                    { "entity": "light.office_ceiling_ring", "name": "Ring" },
+                    { "entity": "light.office_shelf_strip", "name": "Shelf strip" },
+                    { "entity": "light.office_desk_lamp", "name": "Desk lamp" }
+                ],
+                "scenes": [
+                    { "entity": "scene.office_bright", "name": "Bright" },
+                    { "entity": "scene.office_dim", "name": "Dim" },
+                    { "entity": "scene.office_music", "name": "Music" },
+                    { "entity": "scene.shelf_strip_bright", "name": "Bright" },
+                    { "entity": "scene.shelf_strip_night", "name": "Night" }
+                ]
+            }
+        },
+        {
+            "name": "garden",
+            "width": 500,
+            "card": {
+                "type": "custom:room-lights-card",
+                "name": "Garden",
+                "icon": "mdi:pine-tree",
+                "lights": [
+                    { "entity": "light.porch_lanterns", "name": "Lanterns" },
+                    "light.floodlight",
+                    "light.terrace_lights",
+                    "switch.terrace_socket",
+                    "light.string_lights"
+                ],
+                "scenes": [
+                    { "entity": "scene.lanterns_bright", "name": "Bright" },
+                    { "entity": "scene.lanterns_dim", "name": "Dim" }
+                ]
+            }
+        },
+        {
+            "name": "moods",
+            "width": 500,
+            "card": {
+                "type": "custom:room-lights-card",
+                "name": "Moods",
+                "icon": "mdi:party-popper",
+                "scenes": [
+                    { "entity": "scene.movie_night" },
+                    { "entity": "script.christmas_lights", "name": "Christmas" },
+                    { "entity": "script.disco" }
+                ]
+            }
+        },
+        {
+            "name": "narrow",
+            "width": 240,
+            "card": {
+                "type": "custom:room-lights-card",
+                "name": "Office",
+                "icon": "mdi:desk",
+                "lights": [
+                    { "entity": "light.office_ceiling", "name": "Ceiling" },
+                    { "entity": "light.office_ceiling_ring", "name": "Ring" },
+                    { "entity": "light.office_shelf_strip", "name": "Shelf strip" },
+                    { "entity": "light.office_desk_lamp", "name": "Desk lamp" }
+                ],
+                "scenes": [
+                    { "entity": "scene.office_bright", "name": "Bright" },
+                    { "entity": "scene.office_dim", "name": "Dim" },
+                    { "entity": "scene.office_music", "name": "Music" },
+                    { "entity": "scene.shelf_strip_bright", "name": "Bright" },
+                    { "entity": "scene.shelf_strip_night", "name": "Night" }
+                ]
+            }
+        }
+    ]
+}
