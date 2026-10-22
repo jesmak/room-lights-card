@@ -1,6 +1,6 @@
 {
     "name": "room-lights-card",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Home Assistant dashboard card for the lights of one room: a bar per dimmable light, on/off lights as pills, and the room's scenes placed by the lights they touch",
     "keywords": [
         "home-assistant",

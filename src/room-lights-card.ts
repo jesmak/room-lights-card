@@ -667,6 +667,12 @@ export class RoomLightsCard extends LitElement {
                 --mdc-icon-size: 18px;
             }
 
+            /* A light is filled, as a thing with a state, and a scene is outlined, as an action, so the two never look alike. */
+            .chip {
+                border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+                background: none;
+            }
+
             .pill span,
             .chip span {
                 overflow-wrap: anywhere;

@@ -1,4 +1,4 @@
-/*! room-lights-card 1.0.0 | MIT License */
+/*! room-lights-card 1.0.1 | MIT License */
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __decorateClass = (decorators, target, key, kind) => {
@@ -604,7 +604,7 @@ function r5(r6) {
 }
 
 // src/const.ts
-var CARD_VERSION = "1.0.0";
+var CARD_VERSION = "1.0.1";
 var DEFAULT_ICON = "mdi:lightbulb-group";
 var KEY_STEP = 5;
 var PAGE_STEP = 10;
@@ -1671,6 +1671,12 @@ var RoomLightsCard = class extends i4 {
                 background: var(--rlc-quiet);
                 font-size: 13px;
                 --mdc-icon-size: 18px;
+            }
+
+            /* A light is filled, as a thing with a state, and a scene is outlined, as an action, so the two never look alike. */
+            .chip {
+                border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+                background: none;
             }
 
             .pill span,
