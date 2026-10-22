@@ -103,6 +103,8 @@ export const ENTITIES: Record<string, Made> = {
     "scene.terrace_only": { attributes: { entity_id: ["switch.terrace_socket"] }, entry: { area_id: "garden" } },
     "script.disco": { entry: {} },
     "script.office_script": { entry: { area_id: "office" } },
+    "script.strip_party": { entry: {} },
+    "script.office_and_living": { entry: { area_id: "office" } },
 };
 
 export const AREAS = {

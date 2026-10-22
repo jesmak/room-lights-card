@@ -641,10 +641,37 @@ describe("editor", () => {
             const changed = vi.fn();
             editor.addEventListener("config-changed", (event) => changed((event as CustomEvent).detail.config));
             (editor.shadowRoot!.querySelector(".fill ha-button") as HTMLElement).click();
+            await vi.waitFor(() => expect(changed).toHaveBeenCalled());
             expect(changed).toHaveBeenCalledWith(compact(fromArea(hass, before)));
             expect(changed.mock.calls[0][0].lights ?? []).toEqual(
                 area ? ["light.floodlight", "light.lantern_left", "light.lantern_right"] : [],
             );
+        });
+
+        it("reads the scripts' configurations, skipping one it can't read", async () => {
+            const reading: HomeAssistant = {
+                ...hass,
+                callWS: vi.fn((message: { entity_id: string }) =>
+                    message.entity_id === "script.disco"
+                        ? Promise.resolve({
+                              config: { sequence: [{ target: { entity_id: ["light.downlight_living_1", "light.ceiling_office_white"] } }] },
+                          })
+                        : Promise.reject(new Error("unauthorized")),
+                ) as HomeAssistant["callWS"],
+            };
+            const editor = document.createElement("room-lights-card-editor");
+            editor.hass = reading;
+            editor.setConfig({ type: "custom:room-lights-card", lights: ["light.desk_lamp"] });
+            document.body.append(editor);
+            await editor.updateComplete;
+            const changed = vi.fn();
+            editor.addEventListener("config-changed", (event) => changed((event as CustomEvent).detail.config));
+            (editor.shadowRoot!.querySelector(".fill ha-button") as HTMLElement).click();
+            await vi.waitFor(() => expect(changed).toHaveBeenCalled());
+            expect(changed).toHaveBeenCalledWith({
+                type: "custom:room-lights-card",
+                scenes: ["scene.both_rooms", "script.disco", "scene.everything"],
+            });
         });
 
         it("leaves the lists alone when only the area changes", () => {

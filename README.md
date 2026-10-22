@@ -103,7 +103,7 @@ through a light group, and leaves out what isn't on the card, such as a wall swi
 - A scene that changes **one** of the card's lights goes on that light's row. When that one is an on/off light or a
   switch, which is a button with no row, the scene goes with the room's buttons at the bottom.
 - A scene that changes **two or more** of them, a light and a switch included, goes with the room's buttons.
-- **A script** doesn't tell what it changes, so it goes with the room's buttons too.
+- **A script's** state doesn't tell what it changes, so on the card it goes with the room's buttons too.
 
 So a scene called "Bright" may sit on a row in one room and at the bottom in another, depending on which lights it
 changes. To put a scene elsewhere, set its `position` to `room` or to a dimmable light's entity id.
@@ -133,8 +133,9 @@ replaces both lists with the area's, those set by hand included.
   - A **Home Assistant light group** is usually a set of different lights, so it is left out and its lights are shown.
   - A **controller's main light**, such as WLED's when a strip has several segments, can be on while the segments are
     dark, so it is left out and the segments are shown.
-- **Scenes and scripts:** those in the area, and any scene that changes one of the card's lights even when it has
-  no area, but not one that also changes another area's lights. Those belong on the card with no area.
+- **Scenes and scripts:** those in the area, and any that changes one of the card's lights even when it has no area,
+  but not one that also changes another area's lights. Those belong on the card with no area. A script's lights are
+  read from its configuration when the button is pressed, and one whose configuration can't be read is left out.
 
 What is filled in is saved as lists, so the card doesn't change when something is added to the area later. Lights
 that aren't lights of the room, such as a status light on a device, are removed from the list in the editor. A card
@@ -149,8 +150,8 @@ every light in the house would also turn off the screens and status lights that 
 <img src="https://raw.githubusercontent.com/jesmak/room-lights-card/main/docs/images/moods-light.png#gh-light-mode-only" width="510" alt="A card with no area, holding a movie night scene and Christmas and disco scripts as buttons">
 <img src="https://raw.githubusercontent.com/jesmak/room-lights-card/main/docs/images/moods-dark.png#gh-dark-mode-only" width="510" alt="A card with no area, holding a movie night scene and Christmas and disco scripts as buttons">
 
-With no area chosen, the fill button fills in the scenes that change the lights of two or more areas, and no lights.
-Scripts, which don't tell what they change, are added by hand.
+With no area chosen, the fill button fills in the scenes and scripts that change the lights of two or more areas, and
+no lights.
 
 ## Names
 

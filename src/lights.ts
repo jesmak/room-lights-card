@@ -44,9 +44,40 @@ export function membersOf(entity: HassEntity | undefined): string[] {
     return stringList(entity.attributes.entity_id ?? entity.attributes.group_entities);
 }
 
-/** The entities a scene sets. A script says nothing about what it does, so it has none. */
-export function targetsOf(entity: HassEntity | undefined): string[] {
-    return entity && domainOf(entity.entity_id) === "scene" ? stringList(entity.attributes.entity_id) : [];
+/** The lights each script sets, read from its configuration by the editor, as a script's state says nothing of them. */
+export type ScriptTargets = Record<string, string[]>;
+
+/** The entities a scene sets, or a script whose configuration has been read. */
+export function targetsOf(entity: HassEntity | undefined, scripts: ScriptTargets = {}): string[] {
+    if (!entity) {
+        return [];
+    }
+    const domain = domainOf(entity.entity_id);
+    return domain === "scene" ? stringList(entity.attributes.entity_id) : domain === "script" ? (scripts[entity.entity_id] ?? []) : [];
+}
+
+/**
+ * Every light a script's configuration names, wherever it is: a target, a `for_each` list, an action's data. A template
+ * such as `{{ repeat.item }}` names nothing, and a script that calls another is not followed.
+ */
+export function lightsIn(config: unknown): string[] {
+    const found = new Set<string>();
+    const walk = (value: unknown): void => {
+        if (typeof value === "string") {
+            for (const match of value.matchAll(/\blight\.[a-z0-9_]+/g)) {
+                found.add(match[0]);
+            }
+        } else if (Array.isArray(value)) {
+            value.forEach(walk);
+        } else if (value && typeof value === "object") {
+            // An action's name, such as light.turn_on, looks like a light. Its old key was service.
+            Object.entries(value)
+                .filter(([key]) => key !== "action" && key !== "service")
+                .forEach(([, inner]) => walk(inner));
+        }
+    };
+    walk(config);
+    return [...found];
 }
 
 function stringList(value: unknown): string[] {
@@ -113,9 +144,9 @@ export function placeOf(hass: HomeAssistant, scene: SceneConfig, lights: string[
 }
 
 /** The areas whose lights a scene sets. A group with no area of its own counts by its members'. */
-export function sceneAreas(hass: HomeAssistant, sceneId: string): Set<string> {
+export function sceneAreas(hass: HomeAssistant, sceneId: string, scripts: ScriptTargets = {}): Set<string> {
     const areas = new Set<string>();
-    for (const target of targetsOf(hass.states[sceneId])) {
+    for (const target of targetsOf(hass.states[sceneId], scripts)) {
         if (domainOf(target) !== "light") {
             continue;
         }
@@ -187,23 +218,24 @@ export function areaLights(hass: HomeAssistant, area: string | undefined): strin
 }
 
 /**
- * The scenes and scripts the editor fills in. For an area, its own and any scene elsewhere that sets one of the
- * card's lights, unless the scene also sets another area's lights. Without an area, the scenes that span areas.
+ * The scenes and scripts the editor fills in. For an area, its own and any elsewhere that sets one of the card's
+ * lights, unless it also sets another area's lights. Without an area, those that span areas. A script counts by the
+ * lights its configuration names, when the editor could read it.
  */
-export function areaScenes(hass: HomeAssistant, area: string | undefined, lights: string[]): string[] {
+export function areaScenes(hass: HomeAssistant, area: string | undefined, lights: string[], scripts: ScriptTargets = {}): string[] {
     const scenes = Object.keys(hass.states).filter((id) => ["scene", "script"].includes(domainOf(id)));
     const chosen = area
         ? scenes.filter((id) => {
-              const areas = sceneAreas(hass, id);
+              const areas = sceneAreas(hass, id, scripts);
               if ([...areas].some((other) => other !== area)) {
                   return false;
               }
               return (
                   areaOf(hass, id) === area ||
-                  targetsOf(hass.states[id]).some((target) => lights.some((light) => touches(hass, light, target)))
+                  targetsOf(hass.states[id], scripts).some((target) => lights.some((light) => touches(hass, light, target)))
               );
           })
-        : scenes.filter((id) => sceneAreas(hass, id).size >= 2);
+        : scenes.filter((id) => sceneAreas(hass, id, scripts).size >= 2);
     return chosen.sort((a, b) => friendlyName(hass, a).localeCompare(friendlyName(hass, b)));
 }
 

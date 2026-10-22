@@ -7,6 +7,7 @@ import {
     firstArea,
     isDimmable,
     lightColor,
+    lightsIn,
     lightName,
     lightsOf,
     placeOf,
@@ -108,6 +109,7 @@ describe("areaScenes", () => {
 
     it("takes the area's own, and one from elsewhere that sets a card's light, but not one spanning rooms", () => {
         expect(areaScenes(hass, "office", OFFICE)).toEqual([
+            "script.office_and_living",
             "scene.office_bright",
             "scene.office_group",
             "scene.office_music",
@@ -120,6 +122,85 @@ describe("areaScenes", () => {
 
     it("takes only the scenes spanning rooms without an area", () => {
         expect(areaScenes(hass, undefined, [])).toEqual(["scene.both_rooms", "scene.everything"]);
+    });
+});
+
+describe("scripts", () => {
+    const hass = makeHass();
+    // What the scripts' configurations set, as the editor reads them.
+    const SCRIPTS = {
+        "script.disco": ["light.downlight_living_1", "light.ceiling_office_white"],
+        "script.office_script": ["light.ceiling_office_white"],
+        "script.strip_party": ["light.led_strip_office"],
+        "script.office_and_living": ["light.ceiling_office_ring", "light.downlights_living"],
+    };
+
+    it("finds the lights in a script's configuration, wherever they are, and not the actions' names", () => {
+        const disco = {
+            alias: "Disco",
+            sequence: [
+                { action: "script.save_adaptive_lighting" },
+                { action: "light.turn_off", target: { entity_id: ["light.downlights_living", "light.office_lights"] } },
+                {
+                    repeat: {
+                        for_each: ["light.downlight_living_1", "light.downlight_living_2"],
+                        sequence: [{ action: "light.turn_on", data: { effect: "colorloop" }, target: { entity_id: "{{ repeat.item }}" } }],
+                    },
+                },
+                { action: "switch.turn_on", target: { entity_id: "switch.wall_relay" } },
+                { action: "light.turn_on", data: { entity_id: "light.lantern_left" } },
+                { service: "light.toggle", target: { entity_id: "light.turn_on" } },
+            ],
+        };
+        expect(lightsIn(disco)).toEqual([
+            "light.downlights_living",
+            "light.office_lights",
+            "light.downlight_living_1",
+            "light.downlight_living_2",
+            "light.lantern_left",
+            "light.turn_on",
+        ]);
+        expect(lightsIn(undefined)).toEqual([]);
+    });
+
+    it.each([
+        [
+            "an area, with the scripts read",
+            "office",
+            SCRIPTS,
+            [
+                "scene.office_bright",
+                "scene.office_group",
+                "scene.office_music",
+                "script.office_script",
+                "scene.office_strip_night",
+                "script.strip_party",
+                "scene.strip_with_relay",
+            ],
+        ],
+        [
+            "an area, with no scripts read",
+            "office",
+            {},
+            [
+                "script.office_and_living",
+                "scene.office_bright",
+                "scene.office_group",
+                "scene.office_music",
+                "script.office_script",
+                "scene.office_strip_night",
+                "scene.strip_with_relay",
+            ],
+        ],
+        [
+            "no area, with the scripts read",
+            undefined,
+            SCRIPTS,
+            ["scene.both_rooms", "script.disco", "scene.everything", "script.office_and_living"],
+        ],
+        ["no area, with no scripts read", undefined, {}, ["scene.both_rooms", "scene.everything"]],
+    ])("fills in %s", (_case, area, scripts, expected) => {
+        expect(areaScenes(hass, area, area ? OFFICE : [], scripts)).toEqual(expected);
     });
 });
 

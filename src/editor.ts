@@ -7,7 +7,8 @@ import type { CSSResultGroup, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import type { HomeAssistant } from "./hass";
-import { areaLights, areaScenes, isDimmable, lightName, lightsOf, scenesOf } from "./lights";
+import { areaLights, areaScenes, domainOf, isDimmable, lightName, lightsIn, lightsOf, scenesOf } from "./lights";
+import type { ScriptTargets } from "./lights";
 import { browserLanguage, translate } from "./localize/localize";
 import type { LightConfig, RoomLightsCardConfig, SceneConfig } from "./types";
 
@@ -19,9 +20,26 @@ interface SchemaEntry {
  * The area's lights and scenes in place of the card's, whatever those were. Without an area, no lights and the scenes
  * that span areas. Choosing an area changes neither list: only the editor's button does this.
  */
-export function fromArea(hass: HomeAssistant, config: RoomLightsCardConfig): RoomLightsCardConfig {
+export function fromArea(hass: HomeAssistant, config: RoomLightsCardConfig, scripts: ScriptTargets = {}): RoomLightsCardConfig {
     const lights = areaLights(hass, config.area);
-    return { ...config, lights, scenes: areaScenes(hass, config.area, lights) };
+    return { ...config, lights, scenes: areaScenes(hass, config.area, lights, scripts) };
+}
+
+/** The lights each script's configuration names. One that can't be read, such as for a user who isn't an admin, is left out. */
+export async function readScripts(hass: HomeAssistant): Promise<ScriptTargets> {
+    const ids = Object.keys(hass.states).filter((id) => domainOf(id) === "script");
+    if (!hass.callWS) {
+        return {};
+    }
+    const read = await Promise.all(
+        ids.map((id) =>
+            hass.callWS!<{ config: unknown }>({ type: "script/config", entity_id: id }).then(
+                (answer) => [id, lightsIn(answer.config)] as const,
+                () => undefined,
+            ),
+        ),
+    );
+    return Object.fromEntries(read.filter((entry) => entry !== undefined));
 }
 
 /** The configuration as short as it reads the same: bare entity ids where nothing else is set, and no defaults or empty fields. */
@@ -241,9 +259,9 @@ export class RoomLightsCardEditor extends LitElement {
         this.changed({ ...this.config, ...event.detail.value });
     }
 
-    private fill(): void {
+    private async fill(): Promise<void> {
         if (this.hass) {
-            this.changed(fromArea(this.hass, this.config));
+            this.changed(fromArea(this.hass, this.config, await readScripts(this.hass)));
         }
     }
 

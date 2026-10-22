@@ -1,4 +1,4 @@
-/*! room-lights-card 1.0.1 | MIT License */
+/*! room-lights-card 1.0.2 | MIT License */
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __decorateClass = (decorators, target, key, kind) => {
@@ -604,7 +604,7 @@ function r5(r6) {
 }
 
 // src/const.ts
-var CARD_VERSION = "1.0.1";
+var CARD_VERSION = "1.0.2";
 var DEFAULT_ICON = "mdi:lightbulb-group";
 var KEY_STEP = 5;
 var PAGE_STEP = 10;
@@ -639,8 +639,28 @@ function membersOf(entity) {
   }
   return stringList(entity.attributes.entity_id ?? entity.attributes.group_entities);
 }
-function targetsOf(entity) {
-  return entity && domainOf(entity.entity_id) === "scene" ? stringList(entity.attributes.entity_id) : [];
+function targetsOf(entity, scripts = {}) {
+  if (!entity) {
+    return [];
+  }
+  const domain = domainOf(entity.entity_id);
+  return domain === "scene" ? stringList(entity.attributes.entity_id) : domain === "script" ? scripts[entity.entity_id] ?? [] : [];
+}
+function lightsIn(config) {
+  const found = /* @__PURE__ */ new Set();
+  const walk = (value) => {
+    if (typeof value === "string") {
+      for (const match of value.matchAll(/\blight\.[a-z0-9_]+/g)) {
+        found.add(match[0]);
+      }
+    } else if (Array.isArray(value)) {
+      value.forEach(walk);
+    } else if (value && typeof value === "object") {
+      Object.entries(value).filter(([key]) => key !== "action" && key !== "service").forEach(([, inner]) => walk(inner));
+    }
+  };
+  walk(config);
+  return [...found];
 }
 function stringList(value) {
   return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
@@ -681,9 +701,9 @@ function placeOf(hass, scene, lights) {
   const touched = lights.filter((light) => targets.some((target) => touches(hass, light, target)));
   return touched.length === 1 ? touched[0] : "room";
 }
-function sceneAreas(hass, sceneId) {
+function sceneAreas(hass, sceneId, scripts = {}) {
   const areas = /* @__PURE__ */ new Set();
-  for (const target of targetsOf(hass.states[sceneId])) {
+  for (const target of targetsOf(hass.states[sceneId], scripts)) {
     if (domainOf(target) !== "light") {
       continue;
     }
@@ -726,15 +746,15 @@ function areaLights(hass, area) {
   const replaced = new Set(lights.filter((id) => groupKind(hass, id) === "stands-in").flatMap((id) => membersOf(hass.states[id])));
   return lights.filter((id) => !replaced.has(id) && groupKind(hass, id) !== "left-out").sort((a3, b3) => friendlyName(hass, a3).localeCompare(friendlyName(hass, b3)));
 }
-function areaScenes(hass, area, lights) {
+function areaScenes(hass, area, lights, scripts = {}) {
   const scenes = Object.keys(hass.states).filter((id) => ["scene", "script"].includes(domainOf(id)));
   const chosen = area ? scenes.filter((id) => {
-    const areas = sceneAreas(hass, id);
+    const areas = sceneAreas(hass, id, scripts);
     if ([...areas].some((other) => other !== area)) {
       return false;
     }
-    return areaOf(hass, id) === area || targetsOf(hass.states[id]).some((target) => lights.some((light) => touches(hass, light, target)));
-  }) : scenes.filter((id) => sceneAreas(hass, id).size >= 2);
+    return areaOf(hass, id) === area || targetsOf(hass.states[id], scripts).some((target) => lights.some((light) => touches(hass, light, target)));
+  }) : scenes.filter((id) => sceneAreas(hass, id, scripts).size >= 2);
   return chosen.sort((a3, b3) => friendlyName(hass, a3).localeCompare(friendlyName(hass, b3)));
 }
 function friendlyName(hass, entityId) {
@@ -896,9 +916,24 @@ function browserLanguage() {
 }
 
 // src/editor.ts
-function fromArea(hass, config) {
+function fromArea(hass, config, scripts = {}) {
   const lights = areaLights(hass, config.area);
-  return { ...config, lights, scenes: areaScenes(hass, config.area, lights) };
+  return { ...config, lights, scenes: areaScenes(hass, config.area, lights, scripts) };
+}
+async function readScripts(hass) {
+  const ids = Object.keys(hass.states).filter((id) => domainOf(id) === "script");
+  if (!hass.callWS) {
+    return {};
+  }
+  const read2 = await Promise.all(
+    ids.map(
+      (id) => hass.callWS({ type: "script/config", entity_id: id }).then(
+        (answer) => [id, lightsIn(answer.config)],
+        () => void 0
+      )
+    )
+  );
+  return Object.fromEntries(read2.filter((entry) => entry !== void 0));
 }
 function compact(config) {
   const result = { ...config };
@@ -1100,9 +1135,9 @@ var RoomLightsCardEditor = class extends i4 {
   valueChanged(event) {
     this.changed({ ...this.config, ...event.detail.value });
   }
-  fill() {
+  async fill() {
     if (this.hass) {
-      this.changed(fromArea(this.hass, this.config));
+      this.changed(fromArea(this.hass, this.config, await readScripts(this.hass)));
     }
   }
   changed(config) {
