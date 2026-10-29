@@ -1,4 +1,4 @@
-/*! room-lights-card 1.0.0 | MIT License */
+/*! room-lights-card 1.1.0 | MIT License */
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __decorateClass = (decorators, target, key, kind) => {
@@ -604,11 +604,173 @@ function r5(r6) {
 }
 
 // src/const.ts
-var CARD_VERSION = "1.0.0";
+var CARD_VERSION = "1.1.0";
 var DEFAULT_ICON = "mdi:lightbulb-group";
 var KEY_STEP = 5;
 var PAGE_STEP = 10;
 var KEY_DELAY_MS = 400;
+
+// src/fade.ts
+var fadeStyles = i`
+    .fades {
+        --fade-length: min(24px, 25%);
+        scroll-padding-block: calc(var(--fade-top-offset, 0px) + var(--fade-length, 24px)) var(--fade-length, 24px);
+    }
+
+    .fade-top {
+        mask-image: linear-gradient(
+            to bottom,
+            #000 var(--fade-top-offset, 0px),
+            transparent var(--fade-top-offset, 0px),
+            #000 calc(var(--fade-top-offset, 0px) + var(--fade-length, 24px))
+        );
+    }
+
+    .fade-bottom {
+        mask-image: linear-gradient(to top, transparent, #000 var(--fade-length, 24px));
+    }
+
+    .fade-top.fade-bottom {
+        mask-image: linear-gradient(
+            to bottom,
+            #000 var(--fade-top-offset, 0px),
+            transparent var(--fade-top-offset, 0px),
+            #000 calc(var(--fade-top-offset, 0px) + var(--fade-length, 24px)),
+            #000 calc(100% - var(--fade-length, 24px)),
+            transparent
+        );
+    }
+`;
+function markFade(part) {
+  const hidden = part.scrollHeight - part.clientHeight;
+  part.classList.toggle("fade-top", hidden > 1 && part.scrollTop > 1);
+  part.classList.toggle("fade-bottom", hidden > 1 && hidden - part.scrollTop > 1);
+}
+var onScroll = (event) => markFade(event.currentTarget);
+var ScrollFade = class {
+  constructor(host, parts) {
+    this.host = host;
+    this.parts = parts;
+    /** Each followed part with the children whose size it watches. */
+    this.followed = /* @__PURE__ */ new Map();
+    this.resized = typeof ResizeObserver === "undefined" ? void 0 : new ResizeObserver((entries) => {
+      for (const { target } of entries) {
+        const part = this.followed.has(target) ? target : target.parentElement;
+        if (part && this.followed.has(part)) {
+          markFade(part);
+        }
+      }
+    });
+    host.addController(this);
+  }
+  hostConnected() {
+    if (this.host.hasUpdated) {
+      this.follow();
+    }
+  }
+  hostUpdated() {
+    if (this.host.isConnected) {
+      this.follow();
+    }
+  }
+  hostDisconnected() {
+    for (const part of [...this.followed.keys()]) {
+      this.forget(part);
+    }
+  }
+  follow() {
+    const now = new Set(this.parts());
+    for (const part of [...this.followed.keys()]) {
+      if (!now.has(part)) {
+        this.forget(part);
+      }
+    }
+    for (const part of now) {
+      if (!this.followed.has(part)) {
+        part.addEventListener("scroll", onScroll, { passive: true });
+        this.resized?.observe(part);
+      }
+      part.classList.add("fades");
+      const before = this.followed.get(part) ?? [];
+      const children = [...part.children];
+      before.filter((child) => !children.includes(child)).forEach((child) => this.resized?.unobserve(child));
+      children.filter((child) => !before.includes(child)).forEach((child) => this.resized?.observe(child));
+      this.followed.set(part, children);
+      markFade(part);
+    }
+  }
+  forget(part) {
+    this.followed.get(part)?.forEach((child) => this.resized?.unobserve(child));
+    this.followed.delete(part);
+    part.removeEventListener("scroll", onScroll);
+    this.resized?.unobserve(part);
+    part.classList.remove("fades", "fade-top", "fade-bottom");
+  }
+};
+
+// src/height.ts
+var HEIGHT_MODES = ["auto", "fixed", "max"];
+var pixels = (value) => value == null || typeof value === "number" && Number.isFinite(value) && value > 0;
+function validHeight(config) {
+  return (config.height_mode == null || HEIGHT_MODES.includes(config.height_mode)) && pixels(config.height) && pixels(config.max_height);
+}
+function heightMode(config) {
+  return config.height_mode ?? (config.height ? "fixed" : config.max_height ? "max" : "auto");
+}
+var ROW_HEIGHT = 56;
+var ROW_GAP = 8;
+function heightStyle(config, layout, minimum = 0) {
+  const rows = config.grid_options ? config.grid_options.rows : config.layout_options?.grid_rows;
+  if (layout === "grid" && typeof rows === "number") {
+    return "height: 100%";
+  }
+  const mode = heightMode(config);
+  if (mode === "fixed" && config.height) {
+    return `height: ${Math.max(config.height, minimum)}px`;
+  }
+  return mode === "max" && config.max_height ? `max-height: ${Math.max(config.max_height, minimum)}px` : "";
+}
+function gridMinRows(minimum) {
+  return Math.max(1, Math.ceil((minimum + ROW_GAP) / (ROW_HEIGHT + ROW_GAP)));
+}
+function heightCardSize(config, content, minimum = 0) {
+  const mode = heightMode(config);
+  if (mode === "fixed" && config.height) {
+    return Math.max(1, Math.round(Math.max(config.height, minimum) / 50));
+  }
+  return mode === "max" && config.max_height ? Math.max(1, Math.min(content, Math.round(Math.max(config.max_height, minimum) / 50))) : content;
+}
+function heightSchema(config, text) {
+  const mode = heightMode(config);
+  const field = (name) => ({
+    name,
+    selector: { number: { min: 100, max: 2e3, step: 10, unit_of_measurement: "px", mode: "box" } }
+  });
+  return [
+    {
+      name: "height_mode",
+      selector: {
+        select: { mode: "dropdown", options: HEIGHT_MODES.map((value) => ({ value, label: text(`editor.height_mode_${value}`) })) }
+      }
+    },
+    ...mode === "fixed" ? [field("height")] : mode === "max" ? [field("max_height")] : []
+  ];
+}
+function heightData(config) {
+  return { ...config, height_mode: heightMode(config) };
+}
+function tidyHeight(config) {
+  const tidied = { ...config };
+  for (const key of ["height", "max_height"]) {
+    if (!tidied[key]) {
+      delete tidied[key];
+    }
+  }
+  if (!tidied.height_mode || heightMode({ ...tidied, height_mode: void 0 }) === tidied.height_mode) {
+    delete tidied.height_mode;
+  }
+  return tidied;
+}
 
 // src/lights.ts
 var domainOf = (entityId) => entityId.split(".")[0];
@@ -801,6 +963,7 @@ var en_default = {
     lights: "Lights",
     empty: "Choose an area, lights or scenes in the card's settings.",
     invalid_configuration: "Invalid configuration. Lights and scenes must be lists.",
+    invalid_height: "Invalid height. height and max_height must be positive numbers of pixels, and height_mode auto, fixed or max.",
     off: "Off",
     on: "On",
     unavailable: "Unavailable",
@@ -838,7 +1001,16 @@ var en_default = {
     turn_on_lights_option: "Preselected lights",
     turn_on_scene_option: "A scene or script",
     turn_on_lights: "Lights to turn on",
-    turn_on_scene: "Scene or script to start"
+    turn_on_scene: "Scene or script to start",
+    height_mode: "Height",
+    height_mode_helper: "A height set in the layout tab of a sections view is used instead.",
+    height_mode_auto: "Fits the content",
+    height_mode_fixed: "Fixed",
+    height_mode_max: "Grows up to a limit",
+    height: "Fixed height",
+    height_helper: "The card is always this tall, and the lights and scenes scroll inside it.",
+    max_height: "Maximum height",
+    max_height_helper: "The card grows with its content up to this height, and then the lights and scenes scroll."
   }
 };
 
@@ -850,6 +1022,7 @@ var fi_default = {
     lights: "Valot",
     empty: "Valitse kortin asetuksista alue, valot tai tilanteet.",
     invalid_configuration: "Virheelliset asetukset. Valojen ja tilanteiden pit\xE4\xE4 olla listoja.",
+    invalid_height: "Virheellinen korkeus. Korkeuksien (height ja max_height) on oltava positiivisia lukuja pikselein\xE4, ja korkeustilan (height_mode) auto, fixed tai max.",
     off: "Pois",
     on: "P\xE4\xE4ll\xE4",
     unavailable: "Ei saatavilla",
@@ -887,7 +1060,16 @@ var fi_default = {
     turn_on_lights_option: "Esivalitut valot",
     turn_on_scene_option: "Tilanne tai skripti",
     turn_on_lights: "Sytytett\xE4v\xE4t valot",
-    turn_on_scene: "K\xE4ynnistett\xE4v\xE4 tilanne tai skripti"
+    turn_on_scene: "K\xE4ynnistett\xE4v\xE4 tilanne tai skripti",
+    height_mode: "Korkeus",
+    height_mode_helper: "Osioihin jaetun n\xE4kym\xE4n asettelu-v\xE4lilehdell\xE4 asetettu korkeus ohittaa t\xE4m\xE4n.",
+    height_mode_auto: "Sis\xE4ll\xF6n mukaan",
+    height_mode_fixed: "Kiinte\xE4",
+    height_mode_max: "Kasvaa rajaan asti",
+    height: "Kiinte\xE4 korkeus",
+    height_helper: "Kortti on aina n\xE4in korkea, ja valot ja tilanteet vieriv\xE4t sen sis\xE4ll\xE4.",
+    max_height: "Enimm\xE4iskorkeus",
+    max_height_helper: "Kortti kasvaa sis\xE4lt\xF6ns\xE4 mukana t\xE4h\xE4n korkeuteen asti, ja sen j\xE4lkeen valot ja tilanteet vieriv\xE4t."
   }
 };
 
@@ -1031,6 +1213,10 @@ var RoomLightsCardEditor = class extends i4 {
       ...turnOn === "lights" ? [{ name: "turn_on_lights", selector: { entity: { multiple: true, include_entities: ids } } }] : [],
       ...turnOn === "scene" ? [{ name: "turn_on_scene", selector: { entity: { filter: [{ domain: ["scene", "script"] }] } } }] : []
     ])}
+            ${this.form(
+      heightData(this.config),
+      heightSchema(this.config, (key) => this.text(key))
+    )}
         `;
   }
   form(data, schema) {
@@ -1133,7 +1319,7 @@ var RoomLightsCardEditor = class extends i4 {
         `;
   }
   valueChanged(event) {
-    this.changed({ ...this.config, ...event.detail.value });
+    this.changed(tidyHeight({ ...this.config, ...event.detail.value }));
   }
   async fill() {
     if (this.hass) {
@@ -1188,7 +1374,7 @@ function pctAt(event, bar) {
 }
 var RoomLightsCard = class extends i4 {
   constructor() {
-    super(...arguments);
+    super();
     this.pending = /* @__PURE__ */ new Map();
     /** Key presses waiting to be sent, per light, as each light's keys are sent on their own. */
     this.keyTimers = /* @__PURE__ */ new Map();
@@ -1213,6 +1399,7 @@ var RoomLightsCard = class extends i4 {
     this.dragCancel = () => {
       this.drag = void 0;
     };
+    new ScrollFade(this, () => this.heightStyle() ? this.renderRoot.querySelectorAll(".body") : []);
   }
   static getConfigElement() {
     return document.createElement("room-lights-card-editor");
@@ -1230,16 +1417,27 @@ var RoomLightsCard = class extends i4 {
     if (!config || config.lights !== void 0 && !Array.isArray(config.lights) || config.scenes !== void 0 && !Array.isArray(config.scenes)) {
       throw new Error(translate(browserLanguage(), "common.invalid_configuration"));
     }
+    if (!validHeight(config)) {
+      throw new Error(translate(browserLanguage(), "common.invalid_height"));
+    }
     this.config = { ...config };
   }
   getCardSize() {
     const lights = this.config ? lightsOf(this.config) : [];
     const bars = lights.filter((light) => isDimmable(this.hass?.states[light.entity])).length;
-    return 2 + bars;
+    return heightCardSize(this.config ?? {}, 2 + bars, this.minimumHeight());
   }
-  /** In a sections view the card takes a whole section by default and is never narrower than half of one. */
+  /**
+   * In a sections view the card takes a whole section by default and is never narrower than half of one, nor lower
+   * than its minimum.
+   */
   getGridOptions() {
-    return { columns: 12, min_columns: 6, rows: "auto" };
+    return { columns: 12, min_columns: 6, rows: "auto", min_rows: gridMinRows(this.minimumHeight()) };
+  }
+  // The lowest the card goes when held to a height: its padding and border, the header with its 40 px room icon, and
+  // the first light bar (or row of buttons) with the gap above it, as measured on a full section's width.
+  minimumHeight() {
+    return 2 + 24 + 40 + 10 + 32;
   }
   /**
    * A change still waiting for its keys to stop is sent at once, not lost, when the card leaves the page. A drag still
@@ -1252,6 +1450,9 @@ var RoomLightsCard = class extends i4 {
       clearTimeout(timer);
       this.sendKeys(entity, pct);
     }
+  }
+  heightStyle() {
+    return heightStyle(this.config ?? {}, this.layout, this.minimumHeight());
   }
   shouldUpdate(changed) {
     const previous = changed.get("hass");
@@ -1304,14 +1505,16 @@ var RoomLightsCard = class extends i4 {
     const slots = Math.max(0, ...[...rowScenes.values()].map((list) => list.length));
     const labelled = lights.length > 1;
     return b2`
-            <ha-card>
+            <ha-card style=${this.heightStyle()}>
                 ${this.header(ids, area?.name, area?.icon ?? void 0, roomState(hass, ids))}
-                ${bars.length ? b2`<div class="bars" style="--rlc-slots: ${slots}">
-                              ${bars.map((light) => this.bar(light, names.get(light.entity), labelled, rowScenes.get(light.entity), slots > 0))}
-                          </div>` : A}
-                ${pills.length ? b2`<div class="pills">${pills.map((light) => this.pill(light, names.get(light.entity)))}</div>` : A}
-                ${roomScenes.length ? b2`<div class="chips">${roomScenes.map((scene) => this.sceneButton(scene, true))}</div>` : A}
-                ${!lights.length && !scenes.length ? b2`<div class="message">${this.text("common.empty")}</div>` : A}
+                <div class="body">
+                    ${bars.length ? b2`<div class="bars" style="--rlc-slots: ${slots}">
+                                  ${bars.map((light) => this.bar(light, names.get(light.entity), labelled, rowScenes.get(light.entity), slots > 0))}
+                              </div>` : A}
+                    ${pills.length ? b2`<div class="pills">${pills.map((light) => this.pill(light, names.get(light.entity)))}</div>` : A}
+                    ${roomScenes.length ? b2`<div class="chips">${roomScenes.map((scene) => this.sceneButton(scene, true))}</div>` : A}
+                    ${!lights.length && !scenes.length ? b2`<div class="message">${this.text("common.empty")}</div>` : A}
+                </div>
             </ha-card>
         `;
   }
@@ -1525,246 +1728,272 @@ var RoomLightsCard = class extends i4 {
     return this.hass?.locale?.language ?? this.hass?.language ?? browserLanguage();
   }
   static get styles() {
-    return i`
-            ha-card {
-                container-type: inline-size;
-                padding: 12px;
-                --rlc-quiet: color-mix(in srgb, var(--primary-text-color) 8%, transparent);
-            }
-
-            button {
-                padding: 0;
-                border: none;
-                background: none;
-                color: inherit;
-                font: inherit;
-                text-align: left;
-                cursor: pointer;
-            }
-
-            button:disabled {
-                opacity: 0.5;
-                cursor: default;
-            }
-
-            .header {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-            }
-
-            .room-icon {
-                flex: none;
-                display: grid;
-                place-items: center;
-                width: 40px;
-                height: 40px;
-                border-radius: 50%;
-                background: var(--rlc-quiet);
-                color: var(--state-icon-color, var(--secondary-text-color));
-                --mdc-icon-size: 22px;
-            }
-
-            span.room-icon {
-                cursor: default;
-            }
-
-            .room-icon.on {
-                color: var(--light-color, var(--state-light-active-color, #ff9800));
-                background: color-mix(in srgb, var(--light-color, var(--state-light-active-color, #ff9800)) 25%, transparent);
-            }
-
-            .title {
-                flex: 1;
-                min-width: 0;
-            }
-
-            .name {
-                font-size: 16px;
-                font-weight: var(--ha-font-weight-medium, 500);
-                line-height: 1.3;
-                overflow-wrap: anywhere;
-            }
-
-            .status {
-                font-size: 12px;
-                color: var(--secondary-text-color);
-                font-variant-numeric: tabular-nums;
-            }
-
-            .icon-button {
-                flex: none;
-                display: grid;
-                place-items: center;
-                width: 36px;
-                height: 36px;
-                border-radius: 50%;
-                color: var(--secondary-text-color);
-                --mdc-icon-size: 20px;
-            }
-
-            .icon-button:hover:not(:disabled) {
-                background: var(--rlc-quiet);
-            }
-
-            .adaptive {
-                opacity: 0.45;
-            }
-
-            .adaptive.on {
-                opacity: 1;
-                color: var(--primary-color);
-            }
-
-            .bars {
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-                margin-top: 10px;
-            }
-
-            .row {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-            }
-
-            .label {
-                flex: 0 0 clamp(64px, 28%, 128px);
-                font-size: 13px;
-                line-height: 1.25;
-                overflow-wrap: anywhere;
-            }
-
-            .bar {
-                position: relative;
-                flex: 1;
-                min-width: 0;
-                height: 32px;
-                border-radius: 8px;
-                overflow: hidden;
-                background: var(--rlc-quiet);
-                cursor: pointer;
-                touch-action: pan-y;
-                user-select: none;
-            }
-
-            .bar:focus-visible {
-                outline: 2px solid var(--primary-color);
-                outline-offset: 2px;
-            }
-
-            .bar.unavailable {
-                opacity: 0.5;
-                cursor: default;
-            }
-
-            .fill {
-                position: absolute;
-                inset: 0 auto 0 0;
-                background: var(--light-color);
-                opacity: 0.6;
-                pointer-events: none;
-            }
-
-            .row-scenes {
-                flex: none;
-                display: flex;
-                justify-content: flex-end;
-                width: calc(var(--rlc-slots) * 36px);
-            }
-
-            .value {
-                position: absolute;
-                top: 50%;
-                right: 10px;
-                transform: translateY(-50%);
-                font-size: 12px;
-                white-space: nowrap;
-                font-variant-numeric: tabular-nums;
-                pointer-events: none;
-            }
-
-            .pills,
-            .chips {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 6px;
-                margin-top: 10px;
-            }
-
-            .pill,
-            .chip {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                box-sizing: border-box;
-                max-width: 100%;
-                min-height: 32px;
-                padding: 4px 12px 4px 8px;
-                border-radius: 16px;
-                background: var(--rlc-quiet);
-                font-size: 13px;
-                --mdc-icon-size: 18px;
-            }
-
-            /* A light is filled, as a thing with a state, and a scene is outlined, as an action, so the two never look alike. */
-            .chip {
-                border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
-                background: none;
-            }
-
-            .pill span,
-            .chip span {
-                overflow-wrap: anywhere;
-            }
-
-            .pill ha-state-icon,
-            .chip ha-state-icon,
-            .chip ha-icon {
-                flex: none;
-                color: var(--secondary-text-color);
-            }
-
-            .pill.on {
-                background: color-mix(in srgb, var(--state-light-active-color, #ff9800) 22%, transparent);
-            }
-
-            .pill.on ha-state-icon {
-                color: var(--state-light-active-color, #ff9800);
-            }
-
-            .flash {
-                animation: flash 0.6s;
-            }
-
-            @keyframes flash {
-                50% {
-                    background: color-mix(in srgb, var(--primary-text-color) 30%, transparent);
+    return [
+      i`
+                /* A column, so that with a height of its own the header stays put and the lights and scenes below it scroll. */
+                ha-card {
+                    box-sizing: border-box;
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                    container-type: inline-size;
+                    padding: 12px;
+                    --rlc-quiet: color-mix(in srgb, var(--primary-text-color) 8%, transparent);
                 }
-            }
 
-            .message {
-                padding-top: 8px;
-                color: var(--secondary-text-color);
-            }
+                button {
+                    padding: 0;
+                    border: none;
+                    background: none;
+                    color: inherit;
+                    font: inherit;
+                    text-align: left;
+                    cursor: pointer;
+                }
 
-            /* At half a section a light's name takes a line of its own above its bar. */
-            @container (max-width: 279px) {
+                button:disabled {
+                    opacity: 0.5;
+                    cursor: default;
+                }
+
+                .header {
+                    flex: none;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+
+                .room-icon {
+                    flex: none;
+                    display: grid;
+                    place-items: center;
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    background: var(--rlc-quiet);
+                    color: var(--state-icon-color, var(--secondary-text-color));
+                    --mdc-icon-size: 22px;
+                }
+
+                span.room-icon {
+                    cursor: default;
+                }
+
+                .room-icon.on {
+                    color: var(--light-color, var(--state-light-active-color, #ff9800));
+                    background: color-mix(in srgb, var(--light-color, var(--state-light-active-color, #ff9800)) 25%, transparent);
+                }
+
+                .title {
+                    flex: 1;
+                    min-width: 0;
+                }
+
+                .name {
+                    font-size: 16px;
+                    font-weight: var(--ha-font-weight-medium, 500);
+                    line-height: 1.3;
+                    overflow-wrap: anywhere;
+                }
+
+                .status {
+                    font-size: 12px;
+                    color: var(--secondary-text-color);
+                    font-variant-numeric: tabular-nums;
+                }
+
+                .icon-button {
+                    flex: none;
+                    display: grid;
+                    place-items: center;
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 50%;
+                    color: var(--secondary-text-color);
+                    --mdc-icon-size: 20px;
+                }
+
+                .icon-button:hover:not(:disabled) {
+                    background: var(--rlc-quiet);
+                }
+
+                .adaptive {
+                    opacity: 0.45;
+                }
+
+                .adaptive.on {
+                    opacity: 1;
+                    color: var(--primary-color);
+                }
+
+                /*
+                 * The padding, taken back by the margin, keeps a focused bar's or button's outline clear of the scrolling
+                 * sides and bottom. None at the top, where it would lie over the header and its room icon would take no taps.
+                 */
+                .body {
+                    flex: 1 1 auto;
+                    min-height: 0;
+                    overflow-y: auto;
+                    overscroll-behavior: contain;
+                    scrollbar-width: thin;
+                    margin: 0 -4px -4px;
+                    padding: 0 4px 4px;
+                }
+
+                .bars {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                    margin-top: 10px;
+                }
+
                 .row {
-                    flex-wrap: wrap;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
                 }
 
                 .label {
-                    flex-basis: 100%;
+                    flex: 0 0 clamp(64px, 28%, 128px);
+                    font-size: 13px;
+                    line-height: 1.25;
+                    overflow-wrap: anywhere;
                 }
-            }
-        `;
+
+                .bar {
+                    position: relative;
+                    flex: 1;
+                    min-width: 0;
+                    height: 32px;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    background: var(--rlc-quiet);
+                    cursor: pointer;
+                    touch-action: pan-y;
+                    user-select: none;
+                }
+
+                .bar:focus-visible {
+                    outline: 2px solid var(--primary-color);
+                    outline-offset: 2px;
+                }
+
+                .bar.unavailable {
+                    opacity: 0.5;
+                    cursor: default;
+                }
+
+                .fill {
+                    position: absolute;
+                    inset: 0 auto 0 0;
+                    background: var(--light-color);
+                    opacity: 0.6;
+                    pointer-events: none;
+                }
+
+                .row-scenes {
+                    flex: none;
+                    display: flex;
+                    justify-content: flex-end;
+                    width: calc(var(--rlc-slots) * 36px);
+                }
+
+                .value {
+                    position: absolute;
+                    top: 50%;
+                    right: 10px;
+                    transform: translateY(-50%);
+                    font-size: 12px;
+                    white-space: nowrap;
+                    font-variant-numeric: tabular-nums;
+                    pointer-events: none;
+                }
+
+                .pills,
+                .chips {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 6px;
+                    margin-top: 10px;
+                }
+
+                .pill,
+                .chip {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    box-sizing: border-box;
+                    max-width: 100%;
+                    min-height: 32px;
+                    padding: 4px 12px 4px 8px;
+                    border-radius: 16px;
+                    background: var(--rlc-quiet);
+                    font-size: 13px;
+                    --mdc-icon-size: 18px;
+                }
+
+                /* A light is filled, as a thing with a state, and a scene is outlined, as an action, so the two never look alike. */
+                .chip {
+                    border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+                    background: none;
+                }
+
+                .pill span,
+                .chip span {
+                    overflow-wrap: anywhere;
+                }
+
+                .pill ha-state-icon,
+                .chip ha-state-icon,
+                .chip ha-icon {
+                    flex: none;
+                    color: var(--secondary-text-color);
+                }
+
+                .pill.on {
+                    background: color-mix(in srgb, var(--state-light-active-color, #ff9800) 22%, transparent);
+                }
+
+                .pill.on ha-state-icon {
+                    color: var(--state-light-active-color, #ff9800);
+                }
+
+                .flash {
+                    animation: flash 0.6s;
+                }
+
+                @keyframes flash {
+                    50% {
+                        background: color-mix(in srgb, var(--primary-text-color) 30%, transparent);
+                    }
+                }
+
+                .message {
+                    padding-top: 8px;
+                    color: var(--secondary-text-color);
+                }
+
+                /* At half a section a light's name takes a line of its own above its bar. */
+                @container (max-width: 279px) {
+                    .row {
+                        flex-wrap: wrap;
+                    }
+
+                    .label {
+                        flex-basis: 100%;
+                    }
+                }
+            `,
+      fadeStyles
+    ];
   }
 };
 __decorateClass([
   n4({ attribute: false })
 ], RoomLightsCard.prototype, "hass", 2);
+__decorateClass([
+  n4({ attribute: false })
+], RoomLightsCard.prototype, "layout", 2);
 __decorateClass([
   r5()
 ], RoomLightsCard.prototype, "config", 2);

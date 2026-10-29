@@ -1,4 +1,5 @@
 import type { LovelaceCardConfig } from "./hass";
+import type { HeightConfig } from "./height";
 
 /** A light or switch on the card. */
 export interface LightConfig {
@@ -18,7 +19,7 @@ export interface SceneConfig {
 
 export type TurnOn = "all" | "lights" | "scene";
 
-export interface RoomLightsCardConfig extends LovelaceCardConfig {
+export interface RoomLightsCardConfig extends LovelaceCardConfig, HeightConfig {
     /** The area the card shows. Without one, the card holds what belongs to no single room. */
     area?: string;
     name?: string;

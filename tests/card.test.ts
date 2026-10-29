@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { compact, fromArea } from "../src/editor";
 import { areaLights, areaScenes } from "../src/lights";
 import type { HassEntity, HomeAssistant } from "../src/hass";
+import { browserLanguage, translate } from "../src/localize/localize";
 import "../src/room-lights-card";
 import type { RoomLightsCard } from "../src/room-lights-card";
 import type { RoomLightsCardConfig } from "../src/types";
@@ -14,10 +15,11 @@ const OFFICE: Partial<RoomLightsCardConfig> = {
     scenes: ["scene.office_bright", "scene.office_music", { entity: "scene.office_strip_night", name: "Night" }, "script.office_script"],
 };
 
-async function card(hass: HomeAssistant, config: Partial<RoomLightsCardConfig>): Promise<RoomLightsCard> {
+async function card(hass: HomeAssistant, config: Partial<RoomLightsCardConfig>, layout?: string): Promise<RoomLightsCard> {
     const element = document.createElement("room-lights-card");
     element.setConfig({ type: "custom:room-lights-card", ...config } as RoomLightsCardConfig);
     element.hass = hass;
+    element.layout = layout;
     document.body.append(element);
     await element.updateComplete;
     return element;
@@ -550,6 +552,84 @@ describe("room-lights-card", () => {
     it.each([{ lights: "light.a" }, { scenes: { entity: "scene.a" } }])("refuses lights or scenes that aren't lists: %o", (config) => {
         const element = document.createElement("room-lights-card");
         expect(() => element.setConfig({ type: "custom:room-lights-card", ...config } as unknown as RoomLightsCardConfig)).toThrow();
+    });
+
+    it.each([
+        ["its content", undefined, {}, ""],
+        ["a fixed height", undefined, { height_mode: "fixed" as const, height: 240, max_height: 400 }, "height: 240px"],
+        ["a maximum height", undefined, { max_height: 400 }, "max-height: 400px"],
+        ["grid rows in a sections view", "grid", { height: 240, grid_options: { rows: 6 } }, "height: 100%"],
+    ])("sizes itself by %s", async (_name, layout, extra, style) => {
+        const element = await card(makeHass(), { ...OFFICE, ...extra }, layout);
+        expect(root(element).querySelector("ha-card")!.getAttribute("style") ?? "").toBe(style);
+    });
+
+    /** The card's body, taller than the room it has, as happy-dom lays nothing out. */
+    async function overflowing(element: RoomLightsCard): Promise<HTMLElement> {
+        const body = root(element).querySelector(".body") as HTMLElement;
+        Object.defineProperty(body, "scrollHeight", { value: 600, configurable: true });
+        Object.defineProperty(body, "clientHeight", { value: 200, configurable: true });
+        element.requestUpdate();
+        await element.updateComplete;
+        return body;
+    }
+
+    it.each([
+        ["held to a height", undefined, { height: 300 }, ["fade-bottom"]],
+        ["held up to a limit", undefined, { max_height: 300 }, ["fade-bottom"]],
+        ["held by rows in a sections view", "grid", { grid_options: { rows: 4 } }, ["fade-bottom"]],
+        [
+            "held to a height with automatic rows in a sections view",
+            "grid",
+            { height: 300, grid_options: { rows: "auto" } },
+            ["fade-bottom"],
+        ],
+        ["held by the older layout options' rows in a sections view", "grid", { layout_options: { grid_rows: 4 } }, ["fade-bottom"]],
+        ["never in auto", undefined, {}, []],
+        ["never in auto with automatic rows in a sections view", "grid", { grid_options: { rows: "auto" } }, []],
+        ["never by grid rows outside a sections view", undefined, { grid_options: { rows: 4 } }, []],
+    ])("fades the bottom edge of the body that runs past it when %s", async (_name, layout, extra, expected) => {
+        const body = await overflowing(await card(makeHass(), { ...OFFICE, ...extra }, layout));
+        expect(["fade-top", "fade-bottom"].filter((name) => body.classList.contains(name))).toEqual(expected);
+    });
+
+    it("lets go of the body's fade when the card goes from held to auto, and fades it again when held again", async () => {
+        const element = await card(makeHass(), { ...OFFICE, height: 300 });
+        const body = await overflowing(element);
+        expect([...body.classList].filter((name) => name.startsWith("fade"))).toEqual(["fades", "fade-bottom"]);
+        element.setConfig({ type: "custom:room-lights-card", ...OFFICE } as RoomLightsCardConfig);
+        await element.updateComplete;
+        expect([...body.classList].filter((name) => name.startsWith("fade"))).toEqual([]);
+        element.setConfig({ type: "custom:room-lights-card", ...OFFICE, height: 300 } as RoomLightsCardConfig);
+        await element.updateComplete;
+        expect([...body.classList].filter((name) => name.startsWith("fade"))).toEqual(["fades", "fade-bottom"]);
+    });
+
+    it("is never held lower than its header and one light bar", async () => {
+        const element = await card(makeHass(), { ...OFFICE, height_mode: "fixed", height: 50 });
+        expect(element.getGridOptions().min_rows).toBe(2);
+        expect(root(element).querySelector("ha-card")!.getAttribute("style")).toBe("height: 108px");
+    });
+
+    it("puts the header before the body, which holds the bars, the buttons and the scenes", async () => {
+        const element = await card(makeHass(), { ...OFFICE, height_mode: "fixed", height: 200 });
+        const haCard = root(element).querySelector("ha-card")!;
+        expect([...haCard.children].map((child) => child.classList[0])).toEqual(["header", "body"]);
+        expect([...haCard.querySelector(".body")!.children].map((child) => child.className)).toEqual(["bars", "pills", "chips"]);
+    });
+
+    it("refuses a height that isn't a positive number of pixels, and an unknown height mode, with an error about the height", () => {
+        const element = document.createElement("room-lights-card");
+        const config = (extra: Record<string, unknown>) => ({ type: "custom:room-lights-card", ...OFFICE, ...extra }) as never;
+        const error = translate(browserLanguage(), "common.invalid_height");
+        expect(error).toMatch(/^Invalid height\./);
+        for (const value of ["300px", 0, -10]) {
+            expect(() => element.setConfig(config({ max_height: value }))).toThrow(error);
+            expect(() => element.setConfig(config({ height: value }))).toThrow(error);
+        }
+        expect(() => element.setConfig(config({ height_mode: "tall" }))).toThrow(error);
+        // Left empty in YAML, each is unset.
+        expect(() => element.setConfig(config({ height_mode: null, height: null, max_height: null }))).not.toThrow();
     });
 
     it("offers the first area with lights from the picker", () => {

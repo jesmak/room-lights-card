@@ -5,6 +5,7 @@
         "lights": "Valot",
         "empty": "Valitse kortin asetuksista alue, valot tai tilanteet.",
         "invalid_configuration": "Virheelliset asetukset. Valojen ja tilanteiden pitää olla listoja.",
+        "invalid_height": "Virheellinen korkeus. Korkeuksien (height ja max_height) on oltava positiivisia lukuja pikseleinä, ja korkeustilan (height_mode) auto, fixed tai max.",
         "off": "Pois",
         "on": "Päällä",
         "unavailable": "Ei saatavilla",
@@ -42,6 +43,15 @@
         "turn_on_lights_option": "Esivalitut valot",
         "turn_on_scene_option": "Tilanne tai skripti",
         "turn_on_lights": "Sytytettävät valot",
-        "turn_on_scene": "Käynnistettävä tilanne tai skripti"
+        "turn_on_scene": "Käynnistettävä tilanne tai skripti",
+        "height_mode": "Korkeus",
+        "height_mode_helper": "Osioihin jaetun näkymän asettelu-välilehdellä asetettu korkeus ohittaa tämän.",
+        "height_mode_auto": "Sisällön mukaan",
+        "height_mode_fixed": "Kiinteä",
+        "height_mode_max": "Kasvaa rajaan asti",
+        "height": "Kiinteä korkeus",
+        "height_helper": "Kortti on aina näin korkea, ja valot ja tilanteet vierivät sen sisällä.",
+        "max_height": "Enimmäiskorkeus",
+        "max_height_helper": "Kortti kasvaa sisältönsä mukana tähän korkeuteen asti, ja sen jälkeen valot ja tilanteet vierivät."
     }
 }
