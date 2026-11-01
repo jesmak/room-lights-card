@@ -765,21 +765,26 @@ export class RoomLightsCard extends LitElement {
                     padding: 0 4px 4px;
                 }
 
+                /*
+                 * One grid for every light's row, so the bars start and end on the same lines: the names at their own
+                 * width, the bars taking the rest down to 96 px, and the scene icons. A name wraps, or held to a height is
+                 * cut short, only once its bar is down to that. A row's parts are the grid's own items, each in its column.
+                 */
                 .bars {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 8px;
+                    display: grid;
+                    grid-template-columns: auto minmax(96px, 1fr) auto;
+                    align-items: center;
+                    row-gap: 8px;
                 }
 
                 .row {
-                    display: flex;
-                    align-items: center;
-                    gap: 8px 6px;
+                    display: contents;
                 }
 
                 .label {
-                    flex: 0 0 clamp(64px, 28%, 128px);
+                    grid-column: 1;
                     min-width: 0;
+                    margin-right: 6px;
                     font-size: 13px;
                     overflow-wrap: anywhere;
                 }
@@ -796,8 +801,8 @@ export class RoomLightsCard extends LitElement {
                 }
 
                 .bar {
+                    grid-column: 2;
                     position: relative;
-                    flex: 1;
                     min-width: 0;
                     height: 24px;
                     border-radius: 6px;
@@ -827,10 +832,11 @@ export class RoomLightsCard extends LitElement {
                 }
 
                 .row-scenes {
-                    flex: none;
+                    grid-column: 3;
                     display: flex;
                     justify-content: flex-end;
                     width: calc(var(--rlc-slots) * 24px);
+                    margin-left: 6px;
                 }
 
                 .icon-button.scene {
@@ -916,12 +922,18 @@ export class RoomLightsCard extends LitElement {
 
                 /* At half a section a light's name takes a line of its own above its bar. */
                 @container (max-width: 279px) {
-                    .row {
-                        flex-wrap: wrap;
+                    /* The names are above the bars, so a bar no longer has one to make room for and gives way as needed. */
+                    .bars {
+                        grid-template-columns: auto minmax(0, 1fr) auto;
                     }
 
                     .label {
-                        flex-basis: 100%;
+                        grid-column: 1 / -1;
+                        margin-right: 0;
+                    }
+
+                    .bar {
+                        grid-column: 1 / 3;
                     }
                 }
             `,
