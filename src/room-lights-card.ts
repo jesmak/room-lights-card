@@ -11,6 +11,7 @@ import { ScrollFade, fadeStyles } from "./fade";
 import "./editor";
 import type { HassEntity, HomeAssistant } from "./hass";
 import { gridMinRows, heightCardSize, heightStyle, validHeight } from "./height";
+import { filledHeight, validRowStep } from "./rows";
 import {
     areaLights,
     areaScenes,
@@ -63,9 +64,6 @@ interface Pending {
     state: HassEntity | undefined;
 }
 
-/** A row of a sections view and the gap between rows. The card's parts step in half of the two, so two fill a row. */
-const ROW_PX = 64;
-const ROW_GAP_PX = 8;
 /** Below this content width a light's name takes a line of its own above its bar, as the container query switches. */
 const NARROW_PX = 280;
 
@@ -127,6 +125,9 @@ export class RoomLightsCard extends LitElement {
         }
         if (!validHeight(config)) {
             throw new Error(translate(browserLanguage(), "common.invalid_height"));
+        }
+        if (!validRowStep(config)) {
+            throw new Error(translate(browserLanguage(), "common.invalid_row_step"));
         }
         this.config = { ...config };
     }
@@ -197,9 +198,9 @@ export class RoomLightsCard extends LitElement {
     }
 
     /**
-     * On automatic rows in a sections view, the card takes the whole rows its content needs, so the cards under it stay
-     * on the rows. Its parts step in half a row, so what is left over is half a row at most, and it goes between the
-     * header and the content rather than under the content. The content is measured to the end of the body's last part,
+     * On automatic rows in a sections view, the card takes the whole rows its content needs, or the half rows with
+     * `row_step: half`, so the cards under it stay on the rows. Its parts step in half a row, so what is left over is half
+     * a row at most, none with half rows, and it goes between the header and the content rather than under the content. The content is measured to the end of the body's last part,
      * less the room already added, never by the card's own height, which is at least the rows already taken.
      */
     private fillRows(): void {
@@ -217,7 +218,7 @@ export class RoomLightsCard extends LitElement {
             (parseFloat(style.paddingBottom) || 0) +
             (parseFloat(style.borderBottomWidth) || 0) -
             this.spare;
-        const filled = gridMinRows(Math.round(content)) * ROW_PX - ROW_GAP_PX;
+        const filled = filledHeight(Math.round(content), this.config ?? {});
         const spare = Math.max(0, Math.floor(filled - content));
         if (filled !== this.filled) this.filled = filled;
         if (spare !== this.spare) this.spare = spare;

@@ -6,6 +6,7 @@
         "empty": "Choose an area, lights or scenes in the card's settings.",
         "invalid_configuration": "Invalid configuration. Lights and scenes must be lists.",
         "invalid_height": "Invalid height. height and max_height must be positive numbers of pixels, and height_mode auto, fixed or max.",
+        "invalid_row_step": "Invalid rounding. row_step must be full or half.",
         "off": "Off",
         "on": "On",
         "unavailable": "Unavailable",
@@ -52,6 +53,10 @@
         "height": "Fixed height",
         "height_helper": "The card is always this tall, and the lights and scenes scroll inside it.",
         "max_height": "Maximum height",
-        "max_height_helper": "The card grows with its content up to this height, and then the lights and scenes scroll."
+        "max_height_helper": "The card grows with its content up to this height, and then the lights and scenes scroll.",
+        "row_step": "Rounding in a sections view",
+        "row_step_helper": "With automatic row height, the card's height is rounded up to whole rows, or to half rows to save space.",
+        "row_step_full": "Whole rows",
+        "row_step_half": "Half rows"
     }
 }

@@ -666,6 +666,16 @@ describe("room-lights-card", () => {
         expect(() => element.setConfig(config({ height_mode: null, height: null, max_height: null }))).not.toThrow();
     });
 
+    it("refuses a row step other than whole or half rows, with an error about the rounding", () => {
+        const element = document.createElement("room-lights-card");
+        const config = (extra: Record<string, unknown>) => ({ type: "custom:room-lights-card", ...OFFICE, ...extra }) as never;
+        const error = translate(browserLanguage(), "common.invalid_row_step");
+        expect(error).toMatch(/^Invalid rounding\./);
+        expect(() => element.setConfig(config({ row_step: "quarter" }))).toThrow(error);
+        expect(() => element.setConfig(config({ row_step: "half" }))).not.toThrow();
+        expect(() => element.setConfig(config({ row_step: null }))).not.toThrow();
+    });
+
     it("offers the first area with lights from the picker", () => {
         const stub = (customElements.get("room-lights-card") as unknown as typeof RoomLightsCard).getStubConfig(makeHass());
         expect(stub).toEqual({

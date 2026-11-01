@@ -774,6 +774,41 @@ function tidyHeight(config) {
   return tidied;
 }
 
+// src/rows.ts
+var ROW_STEPS = ["full", "half"];
+var ROW_PX = 64;
+var ROW_GAP_PX = 8;
+function validRowStep(config) {
+  return config.row_step === void 0 || config.row_step === null || ROW_STEPS.includes(config.row_step);
+}
+function filledHeight(content, config) {
+  const step = config.row_step === "half" ? ROW_PX / 2 : ROW_PX;
+  return Math.max(1, Math.ceil((content + ROW_GAP_PX) / step)) * step - ROW_GAP_PX;
+}
+function rowStepSchema(config, text) {
+  if (heightMode(config) !== "auto") {
+    return [];
+  }
+  return [
+    {
+      name: "row_step",
+      selector: {
+        select: { mode: "dropdown", options: ROW_STEPS.map((value) => ({ value, label: text(`editor.row_step_${value}`) })) }
+      }
+    }
+  ];
+}
+function rowStepData(config) {
+  return { ...config, row_step: config.row_step ?? "full" };
+}
+function tidyRowStep(config) {
+  const tidied = { ...config };
+  if (tidied.row_step !== "half" || heightMode(tidied) !== "auto") {
+    delete tidied.row_step;
+  }
+  return tidied;
+}
+
 // src/lights.ts
 var domainOf = (entityId) => entityId.split(".")[0];
 function lightsOf(config) {
@@ -966,6 +1001,7 @@ var en_default = {
     empty: "Choose an area, lights or scenes in the card's settings.",
     invalid_configuration: "Invalid configuration. Lights and scenes must be lists.",
     invalid_height: "Invalid height. height and max_height must be positive numbers of pixels, and height_mode auto, fixed or max.",
+    invalid_row_step: "Invalid rounding. row_step must be full or half.",
     off: "Off",
     on: "On",
     unavailable: "Unavailable",
@@ -1012,7 +1048,11 @@ var en_default = {
     height: "Fixed height",
     height_helper: "The card is always this tall, and the lights and scenes scroll inside it.",
     max_height: "Maximum height",
-    max_height_helper: "The card grows with its content up to this height, and then the lights and scenes scroll."
+    max_height_helper: "The card grows with its content up to this height, and then the lights and scenes scroll.",
+    row_step: "Rounding in a sections view",
+    row_step_helper: "With automatic row height, the card's height is rounded up to whole rows, or to half rows to save space.",
+    row_step_full: "Whole rows",
+    row_step_half: "Half rows"
   }
 };
 
@@ -1025,6 +1065,7 @@ var fi_default = {
     empty: "Valitse kortin asetuksista alue, valot tai tilanteet.",
     invalid_configuration: "Virheelliset asetukset. Valojen ja tilanteiden pit\xE4\xE4 olla listoja.",
     invalid_height: "Virheellinen korkeus. Korkeuksien (height ja max_height) on oltava positiivisia lukuja pikselein\xE4, ja korkeustilan (height_mode) auto, fixed tai max.",
+    invalid_row_step: "Virheellinen py\xF6ristys. Py\xF6ristyksen (row_step) on oltava full tai half.",
     off: "Pois",
     on: "P\xE4\xE4ll\xE4",
     unavailable: "Ei saatavilla",
@@ -1071,7 +1112,11 @@ var fi_default = {
     height: "Kiinte\xE4 korkeus",
     height_helper: "Kortti on aina n\xE4in korkea, ja valot ja tilanteet vieriv\xE4t sen sis\xE4ll\xE4.",
     max_height: "Enimm\xE4iskorkeus",
-    max_height_helper: "Kortti kasvaa sis\xE4lt\xF6ns\xE4 mukana t\xE4h\xE4n korkeuteen asti, ja sen j\xE4lkeen valot ja tilanteet vieriv\xE4t."
+    max_height_helper: "Kortti kasvaa sis\xE4lt\xF6ns\xE4 mukana t\xE4h\xE4n korkeuteen asti, ja sen j\xE4lkeen valot ja tilanteet vieriv\xE4t.",
+    row_step: "Py\xF6ristys osioihin jaetussa n\xE4kym\xE4ss\xE4",
+    row_step_helper: "Automaattisella rivikorkeudella kortin korkeus py\xF6ristet\xE4\xE4n yl\xF6sp\xE4in kokonaisiin riveihin, tai tilan s\xE4\xE4st\xE4miseksi puolikkaisiin riveihin.",
+    row_step_full: "Kokonaisiin riveihin",
+    row_step_half: "Puolikkaisiin riveihin"
   }
 };
 
@@ -1215,10 +1260,10 @@ var RoomLightsCardEditor = class extends i4 {
       ...turnOn === "lights" ? [{ name: "turn_on_lights", selector: { entity: { multiple: true, include_entities: ids } } }] : [],
       ...turnOn === "scene" ? [{ name: "turn_on_scene", selector: { entity: { filter: [{ domain: ["scene", "script"] }] } } }] : []
     ])}
-            ${this.form(
-      heightData(this.config),
-      heightSchema(this.config, (key) => this.text(key))
-    )}
+            ${this.form(rowStepData(heightData(this.config)), [
+      ...heightSchema(this.config, (key) => this.text(key)),
+      ...rowStepSchema(this.config, (key) => this.text(key))
+    ])}
         `;
   }
   form(data, schema) {
@@ -1321,7 +1366,7 @@ var RoomLightsCardEditor = class extends i4 {
         `;
   }
   valueChanged(event) {
-    this.changed(tidyHeight({ ...this.config, ...event.detail.value }));
+    this.changed(tidyRowStep(tidyHeight({ ...this.config, ...event.detail.value })));
   }
   async fill() {
     if (this.hass) {
@@ -1369,8 +1414,6 @@ registry.customCards.push({
   documentationURL: "https://github.com/jesmak/room-lights-card",
   preview: true
 });
-var ROW_PX = 64;
-var ROW_GAP_PX = 8;
 var NARROW_PX = 280;
 function pctAt(event, bar) {
   const box = bar.getBoundingClientRect();
@@ -1427,6 +1470,9 @@ var RoomLightsCard = class extends i4 {
     }
     if (!validHeight(config)) {
       throw new Error(translate(browserLanguage(), "common.invalid_height"));
+    }
+    if (!validRowStep(config)) {
+      throw new Error(translate(browserLanguage(), "common.invalid_row_step"));
     }
     this.config = { ...config };
   }
@@ -1485,9 +1531,9 @@ var RoomLightsCard = class extends i4 {
     if (narrow !== this.narrow) this.narrow = narrow;
   }
   /**
-   * On automatic rows in a sections view, the card takes the whole rows its content needs, so the cards under it stay
-   * on the rows. Its parts step in half a row, so what is left over is half a row at most, and it goes between the
-   * header and the content rather than under the content. The content is measured to the end of the body's last part,
+   * On automatic rows in a sections view, the card takes the whole rows its content needs, or the half rows with
+   * `row_step: half`, so the cards under it stay on the rows. Its parts step in half a row, so what is left over is half
+   * a row at most, none with half rows, and it goes between the header and the content rather than under the content. The content is measured to the end of the body's last part,
    * less the room already added, never by the card's own height, which is at least the rows already taken.
    */
   fillRows() {
@@ -1500,7 +1546,7 @@ var RoomLightsCard = class extends i4 {
     }
     const style = getComputedStyle(card);
     const content = last.getBoundingClientRect().bottom - card.getBoundingClientRect().top + (parseFloat(style.paddingBottom) || 0) + (parseFloat(style.borderBottomWidth) || 0) - this.spare;
-    const filled = gridMinRows(Math.round(content)) * ROW_PX - ROW_GAP_PX;
+    const filled = filledHeight(Math.round(content), this.config ?? {});
     const spare = Math.max(0, Math.floor(filled - content));
     if (filled !== this.filled) this.filled = filled;
     if (spare !== this.spare) this.spare = spare;
