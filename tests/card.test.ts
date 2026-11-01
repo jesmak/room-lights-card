@@ -605,10 +605,44 @@ describe("room-lights-card", () => {
         expect([...body.classList].filter((name) => name.startsWith("fade"))).toEqual(["fades", "fade-bottom"]);
     });
 
-    it("is never held lower than its header and one light bar", async () => {
+    it("is never held lower than its header and one line of lights", async () => {
         const element = await card(makeHass(), { ...OFFICE, height_mode: "fixed", height: 50 });
         expect(element.getGridOptions().min_rows).toBe(2);
-        expect(root(element).querySelector("ha-card")!.getAttribute("style")).toBe("height: 108px");
+        expect(root(element).querySelector("ha-card")!.getAttribute("style")).toBe("height: 88px");
+    });
+
+    it.each([
+        ["a whole section", {}, 88],
+        ["11 columns, where a light's name goes above its bar", { grid_options: { columns: 11 } }, 120],
+        ["the older layout options' half section", { layout_options: { grid_columns: 2 } }, 120],
+    ])("at %s keeps room for the first light's name when held", async (_name, extra, minimum) => {
+        // The columns are Home Assistant's own, outside the card's config type
+        const element = await card(makeHass(), { ...OFFICE, ...extra, height_mode: "fixed", height: 50 } as never);
+        expect(root(element).querySelector("ha-card")!.getAttribute("style")).toBe(`height: ${minimum}px`);
+        expect(element.getGridOptions().min_rows).toBe(2);
+    });
+
+    it("needs no room for a name above the bar with a single light", async () => {
+        const element = await card(makeHass(), {
+            area: "office",
+            lights: ["light.desk_lamp"],
+            grid_options: { columns: 6 },
+            height: 50,
+        } as never);
+        expect(root(element).querySelector("ha-card")!.getAttribute("style")).toBe("height: 88px");
+    });
+
+    it("marks itself held, for its one-line texts, only while held to a height", async () => {
+        expect(
+            root(await card(makeHass(), { ...OFFICE, height: 200 }))
+                .querySelector("ha-card")!
+                .classList.contains("held"),
+        ).toBe(true);
+        expect(
+            root(await card(makeHass(), OFFICE, "grid"))
+                .querySelector("ha-card")!
+                .classList.contains("held"),
+        ).toBe(false);
     });
 
     it("puts the header before the body, which holds the bars, the buttons and the scenes", async () => {

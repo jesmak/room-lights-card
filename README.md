@@ -168,9 +168,14 @@ set in `lights` replaces it.
 
 ## Sizes
 
-In a sections view the card takes a whole section by default and can be made as narrow as half of one. Names and
-buttons wrap rather than being cut. On a narrow card a light's name takes a line of its own above its bar. The bars of
-one card all end at the same line, however many scene icons their rows have.
+In a sections view the card takes a whole section by default and can be made as narrow as half of one. Its parts follow
+the view's rows. The header takes one row, and the bars, the buttons and the scenes are each half a row, so two of them
+fill a row. With an odd number of them, the card ends on a whole row with half a row of room under the header. A name
+that wraps adds half a row for each line it takes.
+
+Names and buttons wrap rather than being cut. On a narrow card a light's name takes a line of its own above its bar.
+The bars of one card all end at the same line, however many scene icons their rows have. Held to a height, the card
+keeps every name to one line, cut short with the whole name as a tooltip.
 
 <img src="https://raw.githubusercontent.com/jesmak/room-lights-card/main/docs/images/narrow-light.png#gh-light-mode-only" width="250" alt="The office card at half a section wide, each light's name on its own line above its bar">
 <img src="https://raw.githubusercontent.com/jesmak/room-lights-card/main/docs/images/narrow-dark.png#gh-dark-mode-only" width="250" alt="The office card at half a section wide, each light's name on its own line above its bar">

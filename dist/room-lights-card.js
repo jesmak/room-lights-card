@@ -1,4 +1,4 @@
-/*! room-lights-card 1.1.0 | MIT License */
+/*! room-lights-card 1.2.0 | MIT License */
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __decorateClass = (decorators, target, key, kind) => {
@@ -604,7 +604,7 @@ function r5(r6) {
 }
 
 // src/const.ts
-var CARD_VERSION = "1.1.0";
+var CARD_VERSION = "1.2.0";
 var DEFAULT_ICON = "mdi:lightbulb-group";
 var KEY_STEP = 5;
 var PAGE_STEP = 10;
@@ -1369,6 +1369,9 @@ registry.customCards.push({
   documentationURL: "https://github.com/jesmak/room-lights-card",
   preview: true
 });
+var ROW_PX = 64;
+var ROW_GAP_PX = 8;
+var NARROW_PX = 280;
 function pctAt(event, bar) {
   const box = bar.getBoundingClientRect();
   const share = box.width > 0 ? (event.clientX - box.left) / box.width : 0;
@@ -1380,6 +1383,9 @@ var RoomLightsCard = class extends i4 {
     this.pending = /* @__PURE__ */ new Map();
     /** Key presses waiting to be sent, per light, as each light's keys are sent on their own. */
     this.keyTimers = /* @__PURE__ */ new Map();
+    this.filled = 0;
+    this.spare = 0;
+    this.resizes = typeof ResizeObserver === "undefined" ? void 0 : new ResizeObserver(() => this.fillRowsSoon());
     this.dragMove = (event) => {
       if (this.drag) {
         this.drag = { ...this.drag, pct: pctAt(event, event.currentTarget) };
@@ -1436,10 +1442,71 @@ var RoomLightsCard = class extends i4 {
   getGridOptions() {
     return { columns: 12, min_columns: 6, rows: "auto", min_rows: gridMinRows(this.minimumHeight()) };
   }
-  // The lowest the card goes when held to a height: its padding and border, the header with its 40 px room icon, and
-  // the first light bar (or row of buttons) with the gap above it, as measured on a full section's width.
+  /**
+   * The lowest the card goes when held to a height: its padding and border (8 px at the top and bottom), the header
+   * with its 40 px room icon, the gap under it, and the first line of lights or scenes. In the narrow layout a card of
+   * several lights puts the first light's name on a line of its own above its bar. The columns are what Home
+   * Assistant has before the card is drawn, 11 or fewer giving the narrow layout, and the measured width covers what
+   * they don't promise, such as a phone's single section.
+   */
   minimumHeight() {
-    return 2 + 24 + 40 + 10 + 32;
+    const labelled = this.config ? lightsOf(this.config).length > 1 : false;
+    const narrow = this.columns() <= 11 || this.narrow === true;
+    return 8 + 40 + 8 + 24 + 8 + (labelled && narrow ? 32 : 0);
+  }
+  /** The columns set in the layout tab, in either form Home Assistant has saved them, or a whole section. */
+  columns() {
+    const config = this.config;
+    const columns = config?.grid_options ? config.grid_options.columns : typeof config?.layout_options?.grid_columns === "number" ? config.layout_options.grid_columns * 3 : void 0;
+    return typeof columns === "number" ? columns : 12;
+  }
+  updated() {
+    const card = this.renderRoot.querySelector("ha-card") ?? void 0;
+    if (card !== this.observed) {
+      if (this.observed) this.resizes?.unobserve(this.observed);
+      if (card) this.resizes?.observe(card);
+      this.observed = card;
+    }
+    this.fillRowsSoon();
+  }
+  fillRowsSoon() {
+    cancelAnimationFrame(this.frame ?? 0);
+    this.frame = requestAnimationFrame(() => {
+      this.measureWidth();
+      this.fillRows();
+    });
+  }
+  /** Keeps the layout the card's content width gives it. A hidden card, with no width, keeps the last. */
+  measureWidth() {
+    const card = this.renderRoot.querySelector("ha-card");
+    if (!card?.clientWidth) return;
+    const style = getComputedStyle(card);
+    const narrow = card.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0) < NARROW_PX;
+    if (narrow !== this.narrow) this.narrow = narrow;
+  }
+  /**
+   * On automatic rows in a sections view, the card takes the whole rows its content needs, so the cards under it stay
+   * on the rows. Its parts step in half a row, so what is left over is half a row at most, and it goes between the
+   * header and the content rather than under the content. The content is measured to the end of the body's last part,
+   * less the room already added, never by the card's own height, which is at least the rows already taken.
+   */
+  fillRows() {
+    const card = this.renderRoot.querySelector("ha-card");
+    const last = this.renderRoot.querySelector(".body")?.lastElementChild;
+    if (!card || !last || !card.clientWidth || this.layout !== "grid" || this.heightStyle()) {
+      if (this.filled) this.filled = 0;
+      if (this.spare) this.spare = 0;
+      return;
+    }
+    const style = getComputedStyle(card);
+    const content = last.getBoundingClientRect().bottom - card.getBoundingClientRect().top + (parseFloat(style.paddingBottom) || 0) + (parseFloat(style.borderBottomWidth) || 0) - this.spare;
+    const filled = gridMinRows(Math.round(content)) * ROW_PX - ROW_GAP_PX;
+    const spare = Math.max(0, Math.floor(filled - content));
+    if (filled !== this.filled) this.filled = filled;
+    if (spare !== this.spare) this.spare = spare;
+  }
+  cardStyle() {
+    return this.heightStyle() || (this.filled ? `min-height: ${this.filled}px` : "");
   }
   /**
    * A change still waiting for its keys to stop is sent at once, not lost, when the card leaves the page. A drag still
@@ -1447,6 +1514,9 @@ var RoomLightsCard = class extends i4 {
    */
   disconnectedCallback() {
     super.disconnectedCallback();
+    this.resizes?.disconnect();
+    this.observed = void 0;
+    cancelAnimationFrame(this.frame ?? 0);
     this.drag = void 0;
     for (const [entity, { timer, pct }] of this.keyTimers) {
       clearTimeout(timer);
@@ -1507,9 +1577,9 @@ var RoomLightsCard = class extends i4 {
     const slots = Math.max(0, ...[...rowScenes.values()].map((list) => list.length));
     const labelled = lights.length > 1;
     return b2`
-            <ha-card style=${this.heightStyle()}>
+            <ha-card class=${this.heightStyle() ? "held" : ""} style=${this.cardStyle()}>
                 ${this.header(ids, area?.name, area?.icon ?? void 0, roomState(hass, ids))}
-                <div class="body">
+                <div class="body" style=${this.spare ? `--rlc-spare: ${this.spare}px` : ""}>
                     ${bars.length ? b2`<div class="bars" style="--rlc-slots: ${slots}">
                                   ${bars.map((light) => this.bar(light, names.get(light.entity), labelled, rowScenes.get(light.entity), slots > 0))}
                               </div>` : A}
@@ -1539,9 +1609,9 @@ var RoomLightsCard = class extends i4 {
                           >
                               <ha-icon .icon=${icon}></ha-icon>
                           </button>` : b2`<span class="room-icon"><ha-icon .icon=${icon}></ha-icon></span>`}
-                <div class="title">
-                    ${single ? b2`<button class="name" @click=${() => this.moreInfo(single)}>${name}</button>` : b2`<div class="name">${name}</div>`}
-                    ${ids.length ? b2`<div class="status">${this.status(ids, room)}</div>` : A}
+                <div class="title ${ids.length ? "" : "alone"}">
+                    ${single ? b2`<button class="name" title=${name} @click=${() => this.moreInfo(single)}>${name}</button>` : b2`<div class="name" title=${name}>${name}</div>`}
+                    ${ids.length ? b2`<div class="status" title=${this.status(ids, room)}>${this.status(ids, room)}</div>` : A}
                 </div>
                 ${config.adaptive_lighting ? b2`<button
                               class="icon-button adaptive ${isOn(adaptive) ? "on" : ""}"
@@ -1578,7 +1648,7 @@ var RoomLightsCard = class extends i4 {
     const value = unavailable ? this.text("common.unavailable") : shown > 0 ? this.percent(shown) : this.text("common.off");
     return b2`
             <div class="row">
-                ${labelled ? b2`<button class="label" @click=${() => this.moreInfo(light.entity)}>${name}</button>` : A}
+                ${labelled ? b2`<button class="label" title=${name} @click=${() => this.moreInfo(light.entity)}>${name}</button>` : A}
                 <div
                     class="bar ${shown > 0 ? "on" : ""} ${unavailable ? "unavailable" : ""}"
                     style="--light-color: ${lightColor(entity) ?? "var(--state-light-active-color, #ff9800)"}"
@@ -1613,7 +1683,7 @@ var RoomLightsCard = class extends i4 {
                 @click=${() => this.call("homeassistant", "toggle", light.entity)}
             >
                 ${entity ? b2`<ha-state-icon .hass=${this.hass} .stateObj=${entity}></ha-state-icon>` : b2`<ha-icon icon="mdi:help-circle-outline"></ha-icon>`}
-                <span>${name}</span>
+                <span title=${name}>${name}</span>
             </button>
         `;
   }
@@ -1625,7 +1695,7 @@ var RoomLightsCard = class extends i4 {
     const flashed = this.flashed === scene.entity ? "flash" : "";
     const activate = () => this.activate(scene.entity);
     return named ? b2`<button class="chip ${flashed}" ?disabled=${isUnavailable(entity)} @click=${activate}>
-                  ${icon}<span>${name}</span>
+                  ${icon}<span title=${name}>${name}</span>
               </button>` : b2`<button
                   class="icon-button scene ${flashed}"
                   title=${name}
@@ -1732,14 +1802,20 @@ var RoomLightsCard = class extends i4 {
   static get styles() {
     return [
       i`
-                /* A column, so that with a height of its own the header stays put and the lights and scenes below it scroll. */
+                /*
+                 * A column, so that with a height of its own the header stays put and the lights and scenes below it scroll.
+                 * Its parts step in half a sections row (24 px and an 8 px gap), with 8 px of padding and Home Assistant's
+                 * default 1 px border at the top and bottom, so the header takes a row and two lines of lights or scenes
+                 * take another. A theme's own border width can't be taken off the padding: some themes set it unitless, which
+                 * makes the whole padding invalid. What such a border changes, fillRows takes up.
+                 */
                 ha-card {
                     box-sizing: border-box;
                     display: flex;
                     flex-direction: column;
                     overflow: hidden;
                     container-type: inline-size;
-                    padding: 12px;
+                    padding: 7px 12px;
                     --rlc-quiet: color-mix(in srgb, var(--primary-text-color) 8%, transparent);
                 }
 
@@ -1786,20 +1862,53 @@ var RoomLightsCard = class extends i4 {
                     background: color-mix(in srgb, var(--light-color, var(--state-light-active-color, #ff9800)) 25%, transparent);
                 }
 
+                /* A column, where the texts' negative margins add up instead of collapsing into one */
                 .title {
                     flex: 1;
                     min-width: 0;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-start;
                 }
 
+                /*
+                 * The header steps in half rows too when its texts wrap: the name's lines are 32 px apart less 4 above and
+                 * below, the status's less 8, so one line of each makes the room icon's 40 px and each more line adds 32.
+                 * A card with no lights has no status, and its name takes the status's place in padding, half above it.
+                 */
                 .name {
                     font-size: 16px;
                     font-weight: var(--ha-font-weight-medium, 500);
-                    line-height: 1.3;
+                    line-height: 32px;
+                    margin-block: -4px;
                     overflow-wrap: anywhere;
+                }
+
+                .title.alone {
+                    padding-block: 8px;
+                }
+
+                /* Held to a height, every text keeps to one line, so the height depends only on the width. */
+                .held .name,
+                .held .status,
+                .held .label,
+                .held .pill span,
+                .held .chip span {
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+
+                .held .name,
+                .held .status {
+                    display: block;
+                    max-width: 100%;
                 }
 
                 .status {
                     font-size: 12px;
+                    line-height: 32px;
+                    margin-block: -8px;
                     color: var(--secondary-text-color);
                     font-variant-numeric: tabular-nums;
                 }
@@ -1832,12 +1941,16 @@ var RoomLightsCard = class extends i4 {
                  * The padding, taken back by the margin, keeps a focused bar's or button's outline clear of the scrolling
                  * sides and bottom. None at the top, where it would lie over the header and its room icon would take no taps.
                  */
+                /* The room a whole row leaves over, when there is any, goes under the header. */
                 .body {
                     flex: 1 1 auto;
                     min-height: 0;
                     overflow-y: auto;
                     scrollbar-width: thin;
-                    margin: 0 -4px -4px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                    margin: calc(8px + var(--rlc-spare, 0px)) -4px -4px;
                     padding: 0 4px 4px;
                 }
 
@@ -1845,28 +1958,38 @@ var RoomLightsCard = class extends i4 {
                     display: flex;
                     flex-direction: column;
                     gap: 8px;
-                    margin-top: 10px;
                 }
 
                 .row {
                     display: flex;
                     align-items: center;
-                    gap: 6px;
+                    gap: 8px 6px;
                 }
 
                 .label {
                     flex: 0 0 clamp(64px, 28%, 128px);
+                    min-width: 0;
                     font-size: 13px;
-                    line-height: 1.25;
                     overflow-wrap: anywhere;
+                }
+
+                /*
+                 * A text that wraps steps in half rows too: lines 32 px apart, less 4 px above and below, make one line 24 px,
+                 * two 56 and three 88, so a long name keeps the card on the rows.
+                 */
+                .label,
+                .pill span,
+                .chip span {
+                    line-height: 32px;
+                    margin-block: -4px;
                 }
 
                 .bar {
                     position: relative;
                     flex: 1;
                     min-width: 0;
-                    height: 32px;
-                    border-radius: 8px;
+                    height: 24px;
+                    border-radius: 6px;
                     overflow: hidden;
                     background: var(--rlc-quiet);
                     cursor: pointer;
@@ -1896,7 +2019,13 @@ var RoomLightsCard = class extends i4 {
                     flex: none;
                     display: flex;
                     justify-content: flex-end;
-                    width: calc(var(--rlc-slots) * 36px);
+                    width: calc(var(--rlc-slots) * 24px);
+                }
+
+                .icon-button.scene {
+                    width: 24px;
+                    height: 24px;
+                    --mdc-icon-size: 17px;
                 }
 
                 .value {
@@ -1914,8 +2043,7 @@ var RoomLightsCard = class extends i4 {
                 .chips {
                     display: flex;
                     flex-wrap: wrap;
-                    gap: 6px;
-                    margin-top: 10px;
+                    gap: 8px 6px;
                 }
 
                 .pill,
@@ -1925,22 +2053,24 @@ var RoomLightsCard = class extends i4 {
                     gap: 6px;
                     box-sizing: border-box;
                     max-width: 100%;
-                    min-height: 32px;
-                    padding: 4px 12px 4px 8px;
-                    border-radius: 16px;
+                    min-height: 24px;
+                    padding: 0 10px 0 6px;
+                    border-radius: 12px;
                     background: var(--rlc-quiet);
-                    font-size: 13px;
-                    --mdc-icon-size: 18px;
+                    font-size: 12px;
+                    --mdc-icon-size: 15px;
                 }
 
                 /* A light is filled, as a thing with a state, and a scene is outlined, as an action, so the two never look alike. */
+                /* Its outline drawn inside it, as a border would add to its height and take it off the half-row step */
                 .chip {
-                    border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+                    box-shadow: inset 0 0 0 1px var(--divider-color, rgba(127, 127, 127, 0.3));
                     background: none;
                 }
 
                 .pill span,
                 .chip span {
+                    min-width: 0;
                     overflow-wrap: anywhere;
                 }
 
@@ -1970,7 +2100,6 @@ var RoomLightsCard = class extends i4 {
                 }
 
                 .message {
-                    padding-top: 8px;
                     color: var(--secondary-text-color);
                 }
 
@@ -2007,6 +2136,15 @@ __decorateClass([
 __decorateClass([
   r5()
 ], RoomLightsCard.prototype, "flashed", 2);
+__decorateClass([
+  r5()
+], RoomLightsCard.prototype, "filled", 2);
+__decorateClass([
+  r5()
+], RoomLightsCard.prototype, "spare", 2);
+__decorateClass([
+  r5()
+], RoomLightsCard.prototype, "narrow", 2);
 RoomLightsCard = __decorateClass([
   t3("room-lights-card")
 ], RoomLightsCard);
