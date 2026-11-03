@@ -180,8 +180,8 @@ narrower than 306 px.
 The bars of one card all end at the same line, however many scene icons their rows have. Held to a height, the card
 keeps every name to one line, cut short with the whole name as a tooltip.
 
-<img src="https://raw.githubusercontent.com/jesmak/room-lights-card/main/docs/images/narrow-light.png#gh-light-mode-only" width="250" alt="The office card at half a section wide, each light's name on its own line above its bar">
-<img src="https://raw.githubusercontent.com/jesmak/room-lights-card/main/docs/images/narrow-dark.png#gh-dark-mode-only" width="250" alt="The office card at half a section wide, each light's name on its own line above its bar">
+<img src="https://raw.githubusercontent.com/jesmak/room-lights-card/main/docs/images/narrow-light.png#gh-light-mode-only" width="250" alt="The office card at half a section wide with longer names, which don't fit beside the bars, so each light's name is on its own line above its bar">
+<img src="https://raw.githubusercontent.com/jesmak/room-lights-card/main/docs/images/narrow-dark.png#gh-dark-mode-only" width="250" alt="The office card at half a section wide with longer names, which don't fit beside the bars, so each light's name is on its own line above its bar">
 
 The card follows the theme. The bars, buttons and the room's icon use `--state-light-active-color` for a light that has
 no colour of its own, or whose colour is so close to white that it wouldn't show against a light theme. Adaptive

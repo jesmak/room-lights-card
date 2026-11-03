@@ -266,9 +266,9 @@
                 "name": "Office",
                 "icon": "mdi:desk",
                 "lights": [
-                    { "entity": "light.office_ceiling", "name": "Ceiling" },
+                    { "entity": "light.office_ceiling", "name": "Ceiling downlights" },
                     { "entity": "light.office_ceiling_ring", "name": "Ring" },
-                    { "entity": "light.office_shelf_strip", "name": "Shelf strip" },
+                    { "entity": "light.office_shelf_strip", "name": "Bookshelf strip" },
                     { "entity": "light.office_desk_lamp", "name": "Desk lamp" }
                 ],
                 "scenes": [
