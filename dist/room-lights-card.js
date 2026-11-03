@@ -1415,6 +1415,20 @@ registry.customCards.push({
   preview: true
 });
 var NARROW_PX = 280;
+var SLACK_PX = 0.01;
+function px(value) {
+  return Number.parseFloat(value ?? "") || 0;
+}
+function heightAt(element, width) {
+  element.style.width = `${width}px`;
+  const height = px(getComputedStyle(element).height);
+  element.style.width = "";
+  return height;
+}
+function boxHeightAt(element, width) {
+  const style = getComputedStyle(element);
+  return heightAt(element, width) + px(style.marginTop) + px(style.marginBottom);
+}
 function pctAt(event, bar) {
   const box = bar.getBoundingClientRect();
   const share = box.width > 0 ? (event.clientX - box.left) / box.width : 0;
@@ -1428,6 +1442,7 @@ var RoomLightsCard = class extends i4 {
     this.keyTimers = /* @__PURE__ */ new Map();
     this.filled = 0;
     this.spare = 0;
+    this.above = false;
     this.resizes = typeof ResizeObserver === "undefined" ? void 0 : new ResizeObserver(() => this.fillRowsSoon());
     this.dragMove = (event) => {
       if (this.drag) {
@@ -1519,8 +1534,54 @@ var RoomLightsCard = class extends i4 {
     cancelAnimationFrame(this.frame ?? 0);
     this.frame = requestAnimationFrame(() => {
       this.measureWidth();
+      this.measureLabels();
       this.fillRows();
     });
+  }
+  /**
+   * Puts the lights' names on lines of their own above their bars only when they don't fit beside them: when a name's
+   * longest word wouldn't fit in the names' column, as wide as the widest name or what the bars leave it at their
+   * narrowest, or a row would be taller there than with its name above the bar. The bars share one grid, so they start
+   * and end on the same lines, and all the names go above when one doesn't fit. The grid is held to its drawn height
+   * meanwhile, its overflow clipped, so nothing around it moves. Held, the card keeps its container query instead, as
+   * its names are cut short on one line and can't tell whether they fit.
+   */
+  measureLabels() {
+    const card = this.renderRoot.querySelector("ha-card");
+    const bars = card?.querySelector(".bars");
+    const labels = bars ? [...bars.querySelectorAll(".label")] : [];
+    if (!card?.clientWidth || !bars || this.heightStyle() || !labels.length) {
+      return;
+    }
+    const body = card.querySelector(".body");
+    bars.style.height = `${Math.round(px(getComputedStyle(bars).height) * 64) / 64}px`;
+    bars.style.overflow = "hidden";
+    body?.style.setProperty("overflow-anchor", "none");
+    const wasAbove = bars.classList.contains("above");
+    bars.classList.remove("above");
+    const style = getComputedStyle(bars);
+    const width = px(style.width);
+    const gap = px(style.rowGap);
+    const column = px(style.gridTemplateColumns.split(" ")[0]) - px(getComputedStyle(labels[0]).marginInlineEnd);
+    bars.classList.add("measuring");
+    const words = labels.map((label) => px(getComputedStyle(label).width));
+    bars.classList.remove("measuring");
+    const fits = labels.every((label, index) => {
+      const parts = [label.nextElementSibling, label.nextElementSibling?.nextElementSibling].filter(
+        (part) => part instanceof HTMLElement && !part.classList.contains("label")
+      );
+      const bar = Math.max(0, ...parts.map((part) => px(getComputedStyle(part).height)));
+      const beside = Math.max(boxHeightAt(label, column), bar);
+      const above = boxHeightAt(label, width) + gap + bar;
+      return words[index] <= column + SLACK_PX && beside <= above + SLACK_PX;
+    });
+    bars.classList.toggle("above", wasAbove);
+    bars.style.height = "";
+    bars.style.overflow = "";
+    body?.style.removeProperty("overflow-anchor");
+    if (this.above !== !fits) {
+      this.above = !fits;
+    }
   }
   /** Keeps the layout the card's content width gives it. A hidden card, with no width, keeps the last. */
   measureWidth() {
@@ -1626,7 +1687,7 @@ var RoomLightsCard = class extends i4 {
             <ha-card class=${this.heightStyle() ? "held" : ""} style=${this.cardStyle()}>
                 ${this.header(ids, area?.name, area?.icon ?? void 0, roomState(hass, ids))}
                 <div class="body" style=${this.spare ? `--rlc-spare: ${this.spare}px` : ""}>
-                    ${bars.length ? b2`<div class="bars" style="--rlc-slots: ${slots}">
+                    ${bars.length ? b2`<div class="bars${this.above && !this.heightStyle() ? " above" : ""}" style="--rlc-slots: ${slots}">
                                   ${bars.map((light) => this.bar(light, names.get(light.entity), labelled, rowScenes.get(light.entity), slots > 0))}
                               </div>` : A}
                     ${pills.length ? b2`<div class="pills">${pills.map((light) => this.pill(light, names.get(light.entity)))}</div>` : A}
@@ -2019,7 +2080,8 @@ var RoomLightsCard = class extends i4 {
                 .label {
                     grid-column: 1;
                     min-width: 0;
-                    margin-right: 6px;
+                    margin-inline-end: 6px;
+                    text-align: start;
                     font-size: 13px;
                     overflow-wrap: anywhere;
                 }
@@ -2071,7 +2133,7 @@ var RoomLightsCard = class extends i4 {
                     display: flex;
                     justify-content: flex-end;
                     width: calc(var(--rlc-slots) * 24px);
-                    margin-left: 6px;
+                    margin-inline-start: 6px;
                 }
 
                 .icon-button.scene {
@@ -2155,21 +2217,43 @@ var RoomLightsCard = class extends i4 {
                     color: var(--secondary-text-color);
                 }
 
-                /* At half a section a light's name takes a line of its own above its bar. */
+                /*
+                 * The names on lines of their own above the bars when one doesn't fit beside its bar, as measured, and on a
+                 * held card below 280 px of content (306 px of card). A bar then has no name to make room for and gives way
+                 * as needed.
+                 */
+                .bars.above {
+                    grid-template-columns: auto minmax(0, 1fr) auto;
+                }
+
+                .bars.above .label {
+                    grid-column: 1 / -1;
+                    margin-inline-end: 0;
+                }
+
+                .bars.above .bar {
+                    grid-column: 1 / 3;
+                }
+
                 @container (max-width: 279px) {
-                    /* The names are above the bars, so a bar no longer has one to make room for and gives way as needed. */
-                    .bars {
+                    .held .bars {
                         grid-template-columns: auto minmax(0, 1fr) auto;
                     }
 
-                    .label {
+                    .held .label {
                         grid-column: 1 / -1;
-                        margin-right: 0;
+                        margin-inline-end: 0;
                     }
 
-                    .bar {
+                    .held .bar {
                         grid-column: 1 / 3;
                     }
+                }
+
+                /* Measuring: each name at its longest word, never broken inside one. */
+                .bars.measuring .label {
+                    width: min-content;
+                    overflow-wrap: normal;
                 }
             `,
       fadeStyles
@@ -2203,6 +2287,9 @@ __decorateClass([
 __decorateClass([
   r5()
 ], RoomLightsCard.prototype, "narrow", 2);
+__decorateClass([
+  r5()
+], RoomLightsCard.prototype, "above", 2);
 RoomLightsCard = __decorateClass([
   t3("room-lights-card")
 ], RoomLightsCard);

@@ -64,8 +64,32 @@ interface Pending {
     state: HassEntity | undefined;
 }
 
-/** Below this content width a light's name takes a line of its own above its bar, as the container query switches. */
+/** Below this content width a held card puts a light's name on a line of its own above its bar, as its container query switches. */
 const NARROW_PX = 280;
+
+/**
+ * Room for a measure read in fractions of a pixel, so a text exactly as wide as its room still fits. Smaller than the
+ * 1/64 px a browser lays out in.
+ */
+const SLACK_PX = 0.01;
+
+function px(value: string | undefined): number {
+    return Number.parseFloat(value ?? "") || 0;
+}
+
+/** An element's height laid out at a width of the layout's pixels, its own width left as it was after. */
+function heightAt(element: HTMLElement, width: number): number {
+    element.style.width = `${width}px`;
+    const height = px(getComputedStyle(element).height);
+    element.style.width = "";
+    return height;
+}
+
+/** An element's height with its margins, which for a name are negative, so that its lines step in half rows. */
+function boxHeightAt(element: HTMLElement, width: number): number {
+    const style = getComputedStyle(element);
+    return heightAt(element, width) + px(style.marginTop) + px(style.marginBottom);
+}
 
 /** Where on a bar the pointer is, 0 to 100. Past either end counts as the end. */
 function pctAt(event: PointerEvent, bar: HTMLElement): number {
@@ -90,6 +114,8 @@ export class RoomLightsCard extends LitElement {
     @state() private spare = 0;
     /** Whether the card's measured width gives it the narrow layout; unknown before it is measured. */
     @state() private narrow?: boolean;
+    /** As last measured, whether the lights' names go on lines of their own above their bars, on a card not held. */
+    @state() private above = false;
     private frame?: number;
     private readonly resizes = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(() => this.fillRowsSoon());
     /** The ha-card the observer follows. The host is inline, so its own box never changes size for an observer. */
@@ -184,8 +210,58 @@ export class RoomLightsCard extends LitElement {
         cancelAnimationFrame(this.frame ?? 0);
         this.frame = requestAnimationFrame(() => {
             this.measureWidth();
+            this.measureLabels();
             this.fillRows();
         });
+    }
+
+    /**
+     * Puts the lights' names on lines of their own above their bars only when they don't fit beside them: when a name's
+     * longest word wouldn't fit in the names' column, as wide as the widest name or what the bars leave it at their
+     * narrowest, or a row would be taller there than with its name above the bar. The bars share one grid, so they start
+     * and end on the same lines, and all the names go above when one doesn't fit. The grid is held to its drawn height
+     * meanwhile, its overflow clipped, so nothing around it moves. Held, the card keeps its container query instead, as
+     * its names are cut short on one line and can't tell whether they fit.
+     */
+    private measureLabels(): void {
+        const card = this.renderRoot.querySelector<HTMLElement>("ha-card");
+        const bars = card?.querySelector<HTMLElement>(".bars");
+        const labels = bars ? [...bars.querySelectorAll<HTMLElement>(".label")] : [];
+        if (!card?.clientWidth || !bars || this.heightStyle() || !labels.length) {
+            return;
+        }
+        const body = card.querySelector<HTMLElement>(".body");
+        // A computed height has six significant digits, which can fall short of the 1/64 px a browser lays out in, and the
+        // grid held to that would shrink by a fraction while it is measured. So it is held to the 1/64 px it rounds to.
+        bars.style.height = `${Math.round(px(getComputedStyle(bars).height) * 64) / 64}px`;
+        bars.style.overflow = "hidden";
+        body?.style.setProperty("overflow-anchor", "none");
+        const wasAbove = bars.classList.contains("above");
+        bars.classList.remove("above");
+        const style = getComputedStyle(bars);
+        const width = px(style.width);
+        const gap = px(style.rowGap);
+        // Computed styles are in the layout's pixels, so a dialog's opening scale doesn't shrink them.
+        const column = px(style.gridTemplateColumns.split(" ")[0]) - px(getComputedStyle(labels[0]).marginInlineEnd);
+        bars.classList.add("measuring");
+        const words = labels.map((label) => px(getComputedStyle(label).width));
+        bars.classList.remove("measuring");
+        const fits = labels.every((label, index) => {
+            const parts = [label.nextElementSibling, label.nextElementSibling?.nextElementSibling].filter(
+                (part): part is HTMLElement => part instanceof HTMLElement && !part.classList.contains("label"),
+            );
+            const bar = Math.max(0, ...parts.map((part) => px(getComputedStyle(part).height)));
+            const beside = Math.max(boxHeightAt(label, column), bar);
+            const above = boxHeightAt(label, width) + gap + bar;
+            return words[index] <= column + SLACK_PX && beside <= above + SLACK_PX;
+        });
+        bars.classList.toggle("above", wasAbove);
+        bars.style.height = "";
+        bars.style.overflow = "";
+        body?.style.removeProperty("overflow-anchor");
+        if (this.above !== !fits) {
+            this.above = !fits;
+        }
     }
 
     /** Keeps the layout the card's content width gives it. A hidden card, with no width, keeps the last. */
@@ -317,7 +393,7 @@ export class RoomLightsCard extends LitElement {
                 <div class="body" style=${this.spare ? `--rlc-spare: ${this.spare}px` : ""}>
                     ${
                         bars.length
-                            ? html`<div class="bars" style="--rlc-slots: ${slots}">
+                            ? html`<div class="bars${this.above && !this.heightStyle() ? " above" : ""}" style="--rlc-slots: ${slots}">
                                   ${bars.map((light) => this.bar(light, names.get(light.entity)!, labelled, rowScenes.get(light.entity)!, slots > 0))}
                               </div>`
                             : nothing
@@ -784,7 +860,8 @@ export class RoomLightsCard extends LitElement {
                 .label {
                     grid-column: 1;
                     min-width: 0;
-                    margin-right: 6px;
+                    margin-inline-end: 6px;
+                    text-align: start;
                     font-size: 13px;
                     overflow-wrap: anywhere;
                 }
@@ -836,7 +913,7 @@ export class RoomLightsCard extends LitElement {
                     display: flex;
                     justify-content: flex-end;
                     width: calc(var(--rlc-slots) * 24px);
-                    margin-left: 6px;
+                    margin-inline-start: 6px;
                 }
 
                 .icon-button.scene {
@@ -920,21 +997,43 @@ export class RoomLightsCard extends LitElement {
                     color: var(--secondary-text-color);
                 }
 
-                /* At half a section a light's name takes a line of its own above its bar. */
+                /*
+                 * The names on lines of their own above the bars when one doesn't fit beside its bar, as measured, and on a
+                 * held card below 280 px of content (306 px of card). A bar then has no name to make room for and gives way
+                 * as needed.
+                 */
+                .bars.above {
+                    grid-template-columns: auto minmax(0, 1fr) auto;
+                }
+
+                .bars.above .label {
+                    grid-column: 1 / -1;
+                    margin-inline-end: 0;
+                }
+
+                .bars.above .bar {
+                    grid-column: 1 / 3;
+                }
+
                 @container (max-width: 279px) {
-                    /* The names are above the bars, so a bar no longer has one to make room for and gives way as needed. */
-                    .bars {
+                    .held .bars {
                         grid-template-columns: auto minmax(0, 1fr) auto;
                     }
 
-                    .label {
+                    .held .label {
                         grid-column: 1 / -1;
-                        margin-right: 0;
+                        margin-inline-end: 0;
                     }
 
-                    .bar {
+                    .held .bar {
                         grid-column: 1 / 3;
                     }
+                }
+
+                /* Measuring: each name at its longest word, never broken inside one. */
+                .bars.measuring .label {
+                    width: min-content;
+                    overflow-wrap: normal;
                 }
             `,
             fadeStyles,

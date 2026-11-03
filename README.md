@@ -174,7 +174,9 @@ the view's rows. The header takes one row, and the bars, the buttons and the sce
 fill a row. With an odd number of them, the card ends on a whole row with half a row of room under the header, or with
 `row_step: half` ends half a row sooner. A name that wraps adds half a row for each line it takes.
 
-Names and buttons wrap rather than being cut. On a narrow card a light's name takes a line of its own above its bar.
+Names and buttons wrap rather than being cut. When a light's name doesn't fit beside its bar without breaking a word or
+making its row taller, every name takes a line of its own above its bar, and held to a height, they do so on a card
+narrower than 306 px.
 The bars of one card all end at the same line, however many scene icons their rows have. Held to a height, the card
 keeps every name to one line, cut short with the whole name as a tooltip.
 
