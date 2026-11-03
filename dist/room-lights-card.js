@@ -740,39 +740,6 @@ function heightCardSize(config, content, minimum = 0) {
   }
   return mode === "max" && config.max_height ? Math.max(1, Math.min(content, Math.round(Math.max(config.max_height, minimum) / 50))) : content;
 }
-function heightSchema(config, text) {
-  const mode = heightMode(config);
-  const field = (name) => ({
-    name,
-    selector: { number: { min: 100, max: 2e3, step: 10, unit_of_measurement: "px", mode: "box" } }
-  });
-  return [
-    {
-      name: "height_mode",
-      selector: {
-        select: { mode: "dropdown", options: HEIGHT_MODES.map((value) => ({ value, label: text(`editor.height_mode_${value}`) })) }
-      }
-    },
-    ...mode === "fixed" ? [field("height")] : mode === "max" ? [field("max_height")] : []
-  ];
-}
-function heightData(config) {
-  return { ...config, height_mode: heightMode(config) };
-}
-function tidyHeight(config) {
-  const mode = heightMode(config);
-  const tidied = { ...config };
-  if (mode !== "fixed" || !tidied.height) {
-    delete tidied.height;
-  }
-  if (mode !== "max" || !tidied.max_height) {
-    delete tidied.max_height;
-  }
-  if (!tidied.height_mode || heightMode({ ...tidied, height_mode: void 0 }) === mode) {
-    delete tidied.height_mode;
-  }
-  return tidied;
-}
 
 // src/rows.ts
 var ROW_STEPS = ["full", "half"];
@@ -781,12 +748,34 @@ var ROW_GAP_PX = 8;
 function validRowStep(config) {
   return config.row_step === void 0 || config.row_step === null || ROW_STEPS.includes(config.row_step);
 }
-function filledHeight(content, config) {
-  const step = config.row_step === "half" ? ROW_PX / 2 : ROW_PX;
-  return Math.max(1, Math.ceil((content + ROW_GAP_PX) / step)) * step - ROW_GAP_PX;
+var step = (config) => config.row_step === "half" ? ROW_PX / 2 : ROW_PX;
+function filledHeight(content, config, limit = Infinity) {
+  return Math.min(Math.max(1, Math.ceil((content + ROW_GAP_PX) / step(config))) * step(config) - ROW_GAP_PX, limit);
+}
+function fillLimit(config, layout, minimum = 0) {
+  const rows = config.grid_options ? config.grid_options.rows : config.layout_options?.grid_rows;
+  if (layout !== "grid" || typeof rows === "number") {
+    return 0;
+  }
+  const mode = heightMode(config);
+  if (mode === "fixed" && config.height) {
+    return 0;
+  }
+  if (mode !== "max" || !config.max_height) {
+    return Infinity;
+  }
+  const down = Math.floor((config.max_height + ROW_GAP_PX) / step(config)) * step(config) - ROW_GAP_PX;
+  return Math.max(down, filledHeight(minimum, config));
+}
+function filledStyle(config, layout, minimum, filled) {
+  const limit = fillLimit(config, layout, minimum);
+  if (!limit) {
+    return heightStyle(config, layout, minimum);
+  }
+  return [limit < Infinity && `max-height: ${limit}px`, filled && `min-height: ${filled}px`].filter(Boolean).join("; ");
 }
 function rowStepSchema(config, text) {
-  if (heightMode(config) !== "auto") {
+  if (heightMode(config) === "fixed" && config.height) {
     return [];
   }
   return [
@@ -803,7 +792,7 @@ function rowStepData(config) {
 }
 function tidyRowStep(config) {
   const tidied = { ...config };
-  if (tidied.row_step !== "half" || heightMode(tidied) !== "auto") {
+  if (tidied.row_step !== "half" || heightMode(tidied) === "fixed" && tidied.height) {
     delete tidied.row_step;
   }
   return tidied;
@@ -1040,15 +1029,6 @@ var en_default = {
     turn_on_scene_option: "A scene or script",
     turn_on_lights: "Lights to turn on",
     turn_on_scene: "Scene or script to start",
-    height_mode: "Height",
-    height_mode_helper: "A height set in the layout tab of a sections view is used instead.",
-    height_mode_auto: "Fits the content",
-    height_mode_fixed: "Fixed",
-    height_mode_max: "Grows up to a limit",
-    height: "Fixed height",
-    height_helper: "The card is always this tall, and the lights and scenes scroll inside it.",
-    max_height: "Maximum height",
-    max_height_helper: "The card grows with its content up to this height, and then the lights and scenes scroll.",
     row_step: "Rounding in a sections view",
     row_step_helper: "With automatic row height, the card's height is rounded up to whole rows, or to half rows to save space.",
     row_step_full: "Whole rows",
@@ -1104,15 +1084,6 @@ var fi_default = {
     turn_on_scene_option: "Tilanne tai skripti",
     turn_on_lights: "Sytytett\xE4v\xE4t valot",
     turn_on_scene: "K\xE4ynnistett\xE4v\xE4 tilanne tai skripti",
-    height_mode: "Korkeus",
-    height_mode_helper: "Osioihin jaetun n\xE4kym\xE4n asettelu-v\xE4lilehdell\xE4 asetettu korkeus ohittaa t\xE4m\xE4n.",
-    height_mode_auto: "Sis\xE4ll\xF6n mukaan",
-    height_mode_fixed: "Kiinte\xE4",
-    height_mode_max: "Kasvaa rajaan asti",
-    height: "Kiinte\xE4 korkeus",
-    height_helper: "Kortti on aina n\xE4in korkea, ja valot ja tilanteet vieriv\xE4t sen sis\xE4ll\xE4.",
-    max_height: "Enimm\xE4iskorkeus",
-    max_height_helper: "Kortti kasvaa sis\xE4lt\xF6ns\xE4 mukana t\xE4h\xE4n korkeuteen asti, ja sen j\xE4lkeen valot ja tilanteet vieriv\xE4t.",
     row_step: "Py\xF6ristys osioihin jaetussa n\xE4kym\xE4ss\xE4",
     row_step_helper: "Automaattisella rivikorkeudella kortin korkeus py\xF6ristet\xE4\xE4n yl\xF6sp\xE4in kokonaisiin riveihin, tai tilan s\xE4\xE4st\xE4miseksi puolikkaisiin riveihin.",
     row_step_full: "Kokonaisiin riveihin",
@@ -1260,10 +1231,10 @@ var RoomLightsCardEditor = class extends i4 {
       ...turnOn === "lights" ? [{ name: "turn_on_lights", selector: { entity: { multiple: true, include_entities: ids } } }] : [],
       ...turnOn === "scene" ? [{ name: "turn_on_scene", selector: { entity: { filter: [{ domain: ["scene", "script"] }] } } }] : []
     ])}
-            ${this.form(rowStepData(heightData(this.config)), [
-      ...heightSchema(this.config, (key) => this.text(key)),
-      ...rowStepSchema(this.config, (key) => this.text(key))
-    ])}
+            ${this.form(
+      rowStepData(this.config),
+      rowStepSchema(this.config, (key) => this.text(key))
+    )}
         `;
   }
   form(data, schema) {
@@ -1366,7 +1337,7 @@ var RoomLightsCardEditor = class extends i4 {
         `;
   }
   valueChanged(event) {
-    this.changed(tidyRowStep(tidyHeight({ ...this.config, ...event.detail.value })));
+    this.changed(tidyRowStep({ ...this.config, ...event.detail.value }));
   }
   async fill() {
     if (this.hass) {
@@ -1593,27 +1564,29 @@ var RoomLightsCard = class extends i4 {
   }
   /**
    * On automatic rows in a sections view, the card takes the whole rows its content needs, or the half rows with
-   * `row_step: half`, so the cards under it stay on the rows. Its parts step in half a row, so what is left over is half
+   * `row_step: half`, so the cards under it stay on the rows, up to the limit of a card that grows up to one. Its parts step in half a row, so what is left over is half
    * a row at most, none with half rows, and it goes between the header and the content rather than under the content. The content is measured to the end of the body's last part,
    * less the room already added, never by the card's own height, which is at least the rows already taken.
    */
   fillRows() {
     const card = this.renderRoot.querySelector("ha-card");
     const last = this.renderRoot.querySelector(".body")?.lastElementChild;
-    if (!card || !last || !card.clientWidth || this.layout !== "grid" || this.heightStyle()) {
+    const limit = fillLimit(this.config ?? {}, this.layout, this.minimumHeight());
+    if (!card || !last || !card.clientWidth || !limit) {
       if (this.filled) this.filled = 0;
       if (this.spare) this.spare = 0;
       return;
     }
     const style = getComputedStyle(card);
     const content = last.getBoundingClientRect().bottom - card.getBoundingClientRect().top + (parseFloat(style.paddingBottom) || 0) + (parseFloat(style.borderBottomWidth) || 0) - this.spare;
-    const filled = filledHeight(Math.round(content), this.config ?? {});
+    const filled = filledHeight(Math.round(content), this.config ?? {}, limit);
     const spare = Math.max(0, Math.floor(filled - content));
     if (filled !== this.filled) this.filled = filled;
     if (spare !== this.spare) this.spare = spare;
   }
+  /** The card's inline style: the height it is held to, or the rows it fills up to any limit. */
   cardStyle() {
-    return this.heightStyle() || (this.filled ? `min-height: ${this.filled}px` : "");
+    return filledStyle(this.config ?? {}, this.layout, this.minimumHeight(), this.filled);
   }
   /**
    * A change still waiting for its keys to stop is sent at once, not lost, when the card leaves the page. A drag still

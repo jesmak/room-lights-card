@@ -564,6 +564,25 @@ describe("room-lights-card", () => {
         expect(root(element).querySelector("ha-card")!.getAttribute("style") ?? "").toBe(style);
     });
 
+    // happy-dom lays nothing out, so the body's last part ends where `bottom` says, under 7 px of padding and a 1 px border.
+    it.each([
+        ["under its limit, on the rows its content needs", 200, "max-height: 376px; min-height: 248px", "--rlc-spare: 40px"],
+        ["over its limit, on the limit rounded down to the rows", 600, "max-height: 376px; min-height: 376px", ""],
+    ])("grows up to a limit on automatic rows %s", async (_name, bottom, style, spare) => {
+        const element = await card(makeHass(), { ...OFFICE, max_height: 400, grid_options: { rows: "auto" } }, "grid");
+        const haCard = root(element).querySelector<HTMLElement>("ha-card")!;
+        Object.defineProperty(haCard, "clientWidth", { value: 460, configurable: true });
+        haCard.getBoundingClientRect = () => ({ top: 0 }) as DOMRect;
+        const body = root(element).querySelector<HTMLElement>(".body")!;
+        (body.lastElementChild as HTMLElement).getBoundingClientRect = () => ({ bottom }) as DOMRect;
+        vi.spyOn(window, "getComputedStyle").mockReturnValue({ paddingBottom: "7px", borderBottomWidth: "1px" } as CSSStyleDeclaration);
+        (element as unknown as { fillRows(): void }).fillRows();
+        vi.restoreAllMocks();
+        await element.updateComplete;
+        expect(haCard.getAttribute("style")).toBe(style);
+        expect(root(element).querySelector(".body")!.getAttribute("style")).toBe(spare);
+    });
+
     /** The card's body, taller than the room it has, as happy-dom lays nothing out. */
     async function overflowing(element: RoomLightsCard): Promise<HTMLElement> {
         const body = root(element).querySelector(".body") as HTMLElement;

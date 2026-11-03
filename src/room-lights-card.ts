@@ -11,7 +11,7 @@ import { ScrollFade, fadeStyles } from "./fade";
 import "./editor";
 import type { HassEntity, HomeAssistant } from "./hass";
 import { gridMinRows, heightCardSize, heightStyle, validHeight } from "./height";
-import { filledHeight, validRowStep } from "./rows";
+import { fillLimit, filledHeight, filledStyle, validRowStep } from "./rows";
 import {
     areaLights,
     areaScenes,
@@ -275,14 +275,15 @@ export class RoomLightsCard extends LitElement {
 
     /**
      * On automatic rows in a sections view, the card takes the whole rows its content needs, or the half rows with
-     * `row_step: half`, so the cards under it stay on the rows. Its parts step in half a row, so what is left over is half
+     * `row_step: half`, so the cards under it stay on the rows, up to the limit of a card that grows up to one. Its parts step in half a row, so what is left over is half
      * a row at most, none with half rows, and it goes between the header and the content rather than under the content. The content is measured to the end of the body's last part,
      * less the room already added, never by the card's own height, which is at least the rows already taken.
      */
     private fillRows(): void {
         const card = this.renderRoot.querySelector<HTMLElement>("ha-card");
         const last = this.renderRoot.querySelector<HTMLElement>(".body")?.lastElementChild;
-        if (!card || !last || !card.clientWidth || this.layout !== "grid" || this.heightStyle()) {
+        const limit = fillLimit(this.config ?? {}, this.layout, this.minimumHeight());
+        if (!card || !last || !card.clientWidth || !limit) {
             if (this.filled) this.filled = 0;
             if (this.spare) this.spare = 0;
             return;
@@ -294,14 +295,15 @@ export class RoomLightsCard extends LitElement {
             (parseFloat(style.paddingBottom) || 0) +
             (parseFloat(style.borderBottomWidth) || 0) -
             this.spare;
-        const filled = filledHeight(Math.round(content), this.config ?? {});
+        const filled = filledHeight(Math.round(content), this.config ?? {}, limit);
         const spare = Math.max(0, Math.floor(filled - content));
         if (filled !== this.filled) this.filled = filled;
         if (spare !== this.spare) this.spare = spare;
     }
 
+    /** The card's inline style: the height it is held to, or the rows it fills up to any limit. */
     private cardStyle(): string {
-        return this.heightStyle() || (this.filled ? `min-height: ${this.filled}px` : "");
+        return filledStyle(this.config ?? {}, this.layout, this.minimumHeight(), this.filled);
     }
 
     /**

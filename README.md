@@ -59,7 +59,7 @@ left to Home Assistant's own dialog, which opens from a light's name.
 | `height_mode`       | string | How tall the card is. `auto` fits its content, `fixed` keeps it at `height`, `max` lets it grow up to `max_height`. In `fixed` and `max` the lights and scenes scroll below the header, which stays in view, and the card never gets lower than its header and one light bar. A height in grid rows, set in the layout tab of a sections view, is used instead | `fixed` when `height` is set, `max` when only `max_height` is, otherwise `auto` |
 | `height`            | number | The card's height in pixels, for `fixed`                                                                                                                                                                                                                                                                                                                       |                                                                                 |
 | `max_height`        | number | The card's greatest height in pixels, for `max`                                                                                                                                                                                                                                                                                                                |                                                                                 |
-| `row_step`          | string | How the card rounds its height on automatic rows in a sections view, with `height_mode` `auto`. `full` rounds up to whole rows, `half` to half rows, which saves space but may leave the cards under it half a row off the rows of the sections beside it                                                                                                      | `full`                                                                          |
+| `row_step`          | string | How the card rounds its height on automatic rows in a sections view, with `height_mode` `auto` or `max`. `full` rounds up to whole rows, `half` to half rows, which saves space but may leave the cards under it half a row off the rows of the sections beside it                                                                                             | `full`                                                                          |
 
 Each item of `lights` is an entity id, or an object with these keys:
 
@@ -77,7 +77,9 @@ Each item of `scenes` is an entity id, or an object with these keys:
 | `icon`     | string | Replaces the scene's own icon                                                             | the entity's |
 | `position` | string | `auto`, `room` for the buttons at the bottom, or a dimmable light's entity id for its row | `auto`       |
 
-Everything can be set in the card's visual editor.
+Every option can be set in the card's visual editor, except `height_mode`, `height` and `max_height`, which are set in
+YAML. In a sections view the layout tab sets the card's height. They are for where there is no layout tab, such as a
+masonry or panel view, or a stack or other card the card is inside, even in a sections view.
 
 Adaptive Lighting makes four switches for each room, and the editor offers them all. Pick the main one, the one without
 Sleep Mode, Adapt Brightness or Adapt Color in its name. The others turn only one part of it on and off.
@@ -172,7 +174,8 @@ set in `lights` replaces it.
 In a sections view the card takes a whole section by default and can be made as narrow as half of one. Its parts follow
 the view's rows. The header takes one row, and the bars, the buttons and the scenes are each half a row, so two of them
 fill a row. With an odd number of them, the card ends on a whole row with half a row of room under the header, or with
-`row_step: half` ends half a row sooner. A name that wraps adds half a row for each line it takes.
+`row_step: half` ends half a row sooner. A name that wraps adds half a row for each line it takes. With `max_height`, it
+grows the same way up to that height rounded down to its rows, so it stays on the rows when it reaches it too.
 
 Names and buttons wrap rather than being cut. When a light's name doesn't fit beside its bar without breaking a word or
 making its row taller, every name takes a line of its own above its bar, and held to a height, they do so on a card

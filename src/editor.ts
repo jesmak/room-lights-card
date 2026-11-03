@@ -1,14 +1,13 @@
 /**
  * The card's visual editor: the area, with a button that fills in its lights and scenes, the name and icon, the lights
- * and scenes themselves, Adaptive Lighting's switch, what turning the room on does, and the card's height with how it
- * rounds on automatic rows.
+ * and scenes themselves, Adaptive Lighting's switch, what turning the room on does, and how the card rounds its height
+ * on automatic rows. Its height mode is set in YAML only.
  */
 import { LitElement, css, html, nothing } from "lit";
 import type { CSSResultGroup, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import type { HomeAssistant } from "./hass";
-import { heightData, heightSchema, tidyHeight } from "./height";
 import { rowStepData, rowStepSchema, tidyRowStep } from "./rows";
 import { areaLights, areaScenes, domainOf, isDimmable, lightName, lightsIn, lightsOf, scenesOf } from "./lights";
 import type { ScriptTargets } from "./lights";
@@ -150,10 +149,10 @@ export class RoomLightsCardEditor extends LitElement {
                     ? [{ name: "turn_on_scene", selector: { entity: { filter: [{ domain: ["scene", "script"] }] } } }]
                     : []),
             ])}
-            ${this.form(rowStepData(heightData(this.config)), [
-                ...heightSchema(this.config, (key) => this.text(key)),
-                ...rowStepSchema(this.config, (key) => this.text(key)),
-            ])}
+            ${this.form(
+                rowStepData(this.config),
+                rowStepSchema(this.config, (key) => this.text(key)),
+            )}
         `;
     }
 
@@ -263,7 +262,7 @@ export class RoomLightsCardEditor extends LitElement {
     }
 
     private valueChanged(event: CustomEvent<{ value: RoomLightsCardConfig }>): void {
-        this.changed(tidyRowStep(tidyHeight({ ...this.config, ...event.detail.value })));
+        this.changed(tidyRowStep({ ...this.config, ...event.detail.value }));
     }
 
     private async fill(): Promise<void> {
