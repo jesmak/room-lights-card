@@ -31,7 +31,9 @@ import {
 } from "./lights";
 import type { RoomState } from "./lights";
 import { browserLanguage, translate } from "./localize/localize";
-import type { LightConfig, RoomLightsCardConfig, SceneConfig } from "./types";
+import type { LightConfig, RoomLightsCardConfig, SceneConfig, TurnOn } from "./types";
+
+const TURN_ONS: readonly TurnOn[] = ["all", "lights", "scene"];
 
 console.info(
     `%c  ROOM-LIGHTS-CARD \n%c  ${CARD_VERSION}     `,
@@ -155,6 +157,9 @@ export class RoomLightsCard extends LitElement {
         if (!validRowStep(config)) {
             throw new Error(translate(browserLanguage(), "common.invalid_row_step"));
         }
+        if (config.turn_on !== undefined && config.turn_on !== null && !TURN_ONS.includes(config.turn_on)) {
+            throw new Error(translate(browserLanguage(), "common.invalid_turn_on"));
+        }
         this.config = { ...config };
     }
 
@@ -197,6 +202,11 @@ export class RoomLightsCard extends LitElement {
     }
 
     protected updated(): void {
+        this.follow();
+    }
+
+    /** Follows the ha-card's size, and measures it again. */
+    private follow(): void {
         const card = this.renderRoot.querySelector("ha-card") ?? undefined;
         if (card !== this.observed) {
             if (this.observed) this.resizes?.unobserve(this.observed);
@@ -304,6 +314,12 @@ export class RoomLightsCard extends LitElement {
     /** The card's inline style: the height it is held to, or the rows it fills up to any limit. */
     private cardStyle(): string {
         return filledStyle(this.config ?? {}, this.layout, this.minimumHeight(), this.filled);
+    }
+
+    /** A card that comes back to the page, such as when its view is opened again, isn't rendered, so it follows its size here. */
+    public connectedCallback(): void {
+        super.connectedCallback();
+        if (this.hasUpdated) this.follow();
     }
 
     /**

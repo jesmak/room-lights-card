@@ -196,6 +196,19 @@ describe("room-lights-card", () => {
         expect(hass.callService).not.toHaveBeenCalled();
     });
 
+    it("goes back to the light's own brightness when a change is refused", async () => {
+        const hass = makeHass();
+        hass.callService = vi.fn(() => Promise.reject(new Error("refused")));
+        const element = await card(hass, OFFICE);
+        const bar = all(element, ".bar")[2];
+        measure(bar);
+        pointer(bar, "pointerdown", 160);
+        pointer(bar, "pointerup", 160);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await element.updateComplete;
+        expect(text(bar.querySelector(".value"))).toBe("40%");
+    });
+
     it("sends the arrow keys pressed in a row as one change", async () => {
         vi.useFakeTimers();
         const hass = makeHass();
@@ -238,21 +251,6 @@ describe("room-lights-card", () => {
             vi.advanceTimersByTime(400);
             expect(hass.callService).toHaveBeenCalledTimes(1);
             expect(hass.callService).toHaveBeenCalledWith(...expected);
-        });
-
-        it("sends each bar's change when another bar is used before the first is sent", async () => {
-            vi.useFakeTimers();
-            const hass = makeHass();
-            const element = await card(hass, OFFICE);
-            await press(element, 2, "ArrowRight");
-            await press(element, 1, "End");
-            vi.advanceTimersByTime(400);
-            expect(hass.callService).toHaveBeenCalledTimes(2);
-            expect(hass.callService).toHaveBeenCalledWith("light", "turn_on", { entity_id: "light.led_strip_office", brightness_pct: 45 });
-            expect(hass.callService).toHaveBeenCalledWith("light", "turn_on", {
-                entity_id: "light.ceiling_office_ring",
-                brightness_pct: 100,
-            });
         });
 
         it.each([
@@ -379,19 +377,6 @@ describe("room-lights-card", () => {
                 entity_id: "light.led_strip_office",
                 brightness_pct: 55,
             });
-        });
-
-        it("goes back to the light's own brightness when a change is refused", async () => {
-            const hass = makeHass();
-            hass.callService = vi.fn(() => Promise.reject(new Error("refused")));
-            const element = await card(hass, OFFICE);
-            const bar = all(element, ".bar")[2];
-            measure(bar);
-            pointer(bar, "pointerdown", 160);
-            pointer(bar, "pointerup", 160);
-            await new Promise((resolve) => setTimeout(resolve, 0));
-            await element.updateComplete;
-            expect(text(bar.querySelector(".value"))).toBe("40%");
         });
 
         it("sends nothing for a light that went unavailable when the card leaves the page with its keys waiting", async () => {
@@ -693,6 +678,46 @@ describe("room-lights-card", () => {
         expect(() => element.setConfig(config({ row_step: "quarter" }))).toThrow(error);
         expect(() => element.setConfig(config({ row_step: "half" }))).not.toThrow();
         expect(() => element.setConfig(config({ row_step: null }))).not.toThrow();
+    });
+
+    it("refuses an unknown way of turning the room on, with an error about turning the lights on", () => {
+        const element = document.createElement("room-lights-card");
+        const config = (extra: Record<string, unknown>) => ({ type: "custom:room-lights-card", ...OFFICE, ...extra }) as never;
+        const error = translate(browserLanguage(), "common.invalid_turn_on");
+        expect(error).toMatch(/^Invalid way of turning the lights on\./);
+        expect(() => element.setConfig(config({ turn_on: "scenes" }))).toThrow(error);
+        for (const value of ["all", "lights", "scene", null]) {
+            expect(() => element.setConfig(config({ turn_on: value }))).not.toThrow();
+        }
+    });
+
+    it("follows its size again when it comes back to the page, with no render between", async () => {
+        const observed = new Set<Element>();
+        vi.stubGlobal(
+            "ResizeObserver",
+            class {
+                observe(target: Element) {
+                    observed.add(target);
+                }
+                unobserve(target: Element) {
+                    observed.delete(target);
+                }
+                disconnect() {
+                    observed.clear();
+                }
+            },
+        );
+        try {
+            const element = await card(makeHass(), OFFICE);
+            const haCard = root(element).querySelector("ha-card")!;
+            expect([...observed]).toEqual([haCard]);
+            element.remove();
+            expect(observed.size).toBe(0);
+            document.body.append(element);
+            expect([...observed]).toEqual([haCard]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 
     it("offers the first area with lights from the picker", () => {

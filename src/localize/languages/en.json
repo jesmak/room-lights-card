@@ -7,6 +7,7 @@
         "invalid_configuration": "Invalid configuration. Lights and scenes must be lists.",
         "invalid_height": "Invalid height. height and max_height must be positive numbers of pixels, and height_mode auto, fixed or max.",
         "invalid_row_step": "Invalid rounding. row_step must be full or half.",
+        "invalid_turn_on": "Invalid way of turning the lights on. turn_on must be all, lights or scene.",
         "off": "Off",
         "on": "On",
         "unavailable": "Unavailable",

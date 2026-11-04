@@ -17,11 +17,11 @@ export interface EntityEntry {
     entity_category?: string | null;
 }
 
-export interface DeviceEntry {
+interface DeviceEntry {
     area_id?: string | null;
 }
 
-export interface AreaEntry {
+interface AreaEntry {
     area_id: string;
     name: string;
     icon?: string | null;

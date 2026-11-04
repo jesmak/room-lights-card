@@ -7,6 +7,7 @@
         "invalid_configuration": "Virheelliset asetukset. Valojen ja tilanteiden pitää olla listoja.",
         "invalid_height": "Virheellinen korkeus. Korkeuksien (height ja max_height) on oltava positiivisia lukuja pikseleinä, ja korkeustilan (height_mode) auto, fixed tai max.",
         "invalid_row_step": "Virheellinen pyöristys. Pyöristyksen (row_step) on oltava full tai half.",
+        "invalid_turn_on": "Virheellinen valojen sytyttäminen. Sytyttämisen (turn_on) on oltava all, lights tai scene.",
         "off": "Pois",
         "on": "Päällä",
         "unavailable": "Ei saatavilla",

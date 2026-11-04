@@ -16,7 +16,7 @@ interface Made {
 const CT = { supported_color_modes: ["color_temp", "xy"] };
 const ONOFF = { supported_color_modes: ["onoff"] };
 
-export const ENTITIES: Record<string, Made> = {
+const ENTITIES: Record<string, Made> = {
     "light.ceiling_office_white": {
         state: "on",
         attributes: { ...CT, brightness: 255, rgb_color: [255, 240, 220] },
@@ -107,7 +107,7 @@ export const ENTITIES: Record<string, Made> = {
     "script.office_and_living": { entry: { area_id: "office" } },
 };
 
-export const AREAS = {
+const AREAS = {
     office: { area_id: "office", name: "Office", icon: "mdi:desk" },
     living_room: { area_id: "living_room", name: "Living room", icon: "mdi:sofa" },
     garden: { area_id: "garden", name: "Garden", icon: "mdi:tree" },

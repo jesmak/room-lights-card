@@ -37,7 +37,7 @@ describe("languages", () => {
         expect(keys(language("en")).filter((key) => !own.has(key))).toEqual([]);
     });
 
-    it("fall back to English for a text a language lacks, and to the key for one nobody has", () => {
+    it("fall back to English for an unknown language, take a regional code as its language, and give the key for a text nobody has", () => {
         expect(translate("fi", "common.name")).toBe("Huoneen valot");
         expect(translate("xx", "common.name")).toBe(translate("en", "common.name"));
         expect(translate("fi-FI", "common.name")).toBe("Huoneen valot");

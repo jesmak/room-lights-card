@@ -28,7 +28,7 @@ function longForm(list: unknown): Array<{ entity: string }> {
 }
 
 /** The area an entity is in: its own, or its device's. */
-export function areaOf(hass: HomeAssistant, entityId: string): string | undefined {
+function areaOf(hass: HomeAssistant, entityId: string): string | undefined {
     const entry = hass.entities?.[entityId];
     if (!entry) {
         return undefined;
@@ -37,7 +37,7 @@ export function areaOf(hass: HomeAssistant, entityId: string): string | undefine
 }
 
 /** A light group's members. Home Assistant's groups list them in `entity_id`, Zigbee groups in `group_entities`. */
-export function membersOf(entity: HassEntity | undefined): string[] {
+function membersOf(entity: HassEntity | undefined): string[] {
     if (!entity || domainOf(entity.entity_id) !== "light") {
         return [];
     }
@@ -48,7 +48,7 @@ export function membersOf(entity: HassEntity | undefined): string[] {
 export type ScriptTargets = Record<string, string[]>;
 
 /** The entities a scene sets, or a script whose configuration has been read. */
-export function targetsOf(entity: HassEntity | undefined, scripts: ScriptTargets = {}): string[] {
+function targetsOf(entity: HassEntity | undefined, scripts: ScriptTargets = {}): string[] {
     if (!entity) {
         return [];
     }

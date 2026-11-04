@@ -28,11 +28,11 @@ export function fromArea(hass: HomeAssistant, config: RoomLightsCardConfig, scri
 }
 
 /** The lights each script's configuration names. One that can't be read, such as for a user who isn't an admin, is left out. */
-export async function readScripts(hass: HomeAssistant): Promise<ScriptTargets> {
-    const ids = Object.keys(hass.states).filter((id) => domainOf(id) === "script");
+async function readScripts(hass: HomeAssistant): Promise<ScriptTargets> {
     if (!hass.callWS) {
         return {};
     }
+    const ids = Object.keys(hass.states).filter((id) => domainOf(id) === "script");
     const read = await Promise.all(
         ids.map((id) =>
             hass.callWS!<{ config: unknown }>({ type: "script/config", entity_id: id }).then(

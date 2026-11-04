@@ -1,4 +1,4 @@
-/*! room-lights-card 1.2.0 | MIT License */
+/*! room-lights-card 1.1.0 | MIT License */
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __decorateClass = (decorators, target, key, kind) => {
@@ -604,7 +604,7 @@ function r5(r6) {
 }
 
 // src/const.ts
-var CARD_VERSION = "1.2.0";
+var CARD_VERSION = "1.1.0";
 var DEFAULT_ICON = "mdi:lightbulb-group";
 var KEY_STEP = 5;
 var PAGE_STEP = 10;
@@ -991,6 +991,7 @@ var en_default = {
     invalid_configuration: "Invalid configuration. Lights and scenes must be lists.",
     invalid_height: "Invalid height. height and max_height must be positive numbers of pixels, and height_mode auto, fixed or max.",
     invalid_row_step: "Invalid rounding. row_step must be full or half.",
+    invalid_turn_on: "Invalid way of turning the lights on. turn_on must be all, lights or scene.",
     off: "Off",
     on: "On",
     unavailable: "Unavailable",
@@ -1046,6 +1047,7 @@ var fi_default = {
     invalid_configuration: "Virheelliset asetukset. Valojen ja tilanteiden pit\xE4\xE4 olla listoja.",
     invalid_height: "Virheellinen korkeus. Korkeuksien (height ja max_height) on oltava positiivisia lukuja pikselein\xE4, ja korkeustilan (height_mode) auto, fixed tai max.",
     invalid_row_step: "Virheellinen py\xF6ristys. Py\xF6ristyksen (row_step) on oltava full tai half.",
+    invalid_turn_on: "Virheellinen valojen sytytt\xE4minen. Sytytt\xE4misen (turn_on) on oltava all, lights tai scene.",
     off: "Pois",
     on: "P\xE4\xE4ll\xE4",
     unavailable: "Ei saatavilla",
@@ -1121,10 +1123,10 @@ function fromArea(hass, config, scripts = {}) {
   return { ...config, lights, scenes: areaScenes(hass, config.area, lights, scripts) };
 }
 async function readScripts(hass) {
-  const ids = Object.keys(hass.states).filter((id) => domainOf(id) === "script");
   if (!hass.callWS) {
     return {};
   }
+  const ids = Object.keys(hass.states).filter((id) => domainOf(id) === "script");
   const read2 = await Promise.all(
     ids.map(
       (id) => hass.callWS({ type: "script/config", entity_id: id }).then(
@@ -1370,6 +1372,7 @@ RoomLightsCardEditor = __decorateClass([
 ], RoomLightsCardEditor);
 
 // src/room-lights-card.ts
+var TURN_ONS = ["all", "lights", "scene"];
 console.info(
   `%c  ROOM-LIGHTS-CARD 
 %c  ${CARD_VERSION}     `,
@@ -1460,6 +1463,9 @@ var RoomLightsCard = class extends i4 {
     if (!validRowStep(config)) {
       throw new Error(translate(browserLanguage(), "common.invalid_row_step"));
     }
+    if (config.turn_on !== void 0 && config.turn_on !== null && !TURN_ONS.includes(config.turn_on)) {
+      throw new Error(translate(browserLanguage(), "common.invalid_turn_on"));
+    }
     this.config = { ...config };
   }
   getCardSize() {
@@ -1493,6 +1499,10 @@ var RoomLightsCard = class extends i4 {
     return typeof columns === "number" ? columns : 12;
   }
   updated() {
+    this.follow();
+  }
+  /** Follows the ha-card's size, and measures it again. */
+  follow() {
     const card = this.renderRoot.querySelector("ha-card") ?? void 0;
     if (card !== this.observed) {
       if (this.observed) this.resizes?.unobserve(this.observed);
@@ -1587,6 +1597,11 @@ var RoomLightsCard = class extends i4 {
   /** The card's inline style: the height it is held to, or the rows it fills up to any limit. */
   cardStyle() {
     return filledStyle(this.config ?? {}, this.layout, this.minimumHeight(), this.filled);
+  }
+  /** A card that comes back to the page, such as when its view is opened again, isn't rendered, so it follows its size here. */
+  connectedCallback() {
+    super.connectedCallback();
+    if (this.hasUpdated) this.follow();
   }
   /**
    * A change still waiting for its keys to stop is sent at once, not lost, when the card leaves the page. A drag still
