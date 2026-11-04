@@ -3,7 +3,7 @@
 Home Assistant dashboard card for the lights of one room, with a brightness bar for each dimmable light, the other
 lights and switches as buttons, and the room's scenes, each placed by the lights it changes.
 
-[![GitHub Release][releases-shield]][releases] [![GitHub Release Date][release-date-shield]][releases] [![HACS][hacs-shield]][hacs] [![License][license-shield]](LICENSE)
+[![GitHub Release][releases-shield]][releases] [![GitHub Release Date][release-date-shield]][releases] [![Marketplace][marketplace-shield]][marketplace] [![License][license-shield]](LICENSE)
 
 <p>
 <img src="https://raw.githubusercontent.com/jesmak/room-lights-card/main/docs/images/living-room-light.png#gh-light-mode-only" width="400" alt="A living room card with its downlights at 70% and a purple LED strip at 45% with two scene icons on its row, Adaptive Lighting on, and the room's Bright and Dim scenes as buttons">
@@ -28,10 +28,10 @@ left to Home Assistant's own dialog, which opens from a light's name.
 
 ## Installation
 
-### With HACS
+### With the Marketplace
 
-1. Add this repository to HACS custom repositories with type **Dashboard**
-2. Search for Room lights card in HACS and download it
+1. Open Settings › Marketplace, choose Add from link and paste `https://github.com/jesmak/room-lights-card`
+2. Open Room lights card in the Marketplace and choose Install
 3. Refresh your browser
 
 ### Manual
@@ -274,7 +274,7 @@ npm run check
 ```
 
 `npm run check` typechecks, lints, checks formatting, runs the tests and builds `dist/room-lights-card.js`, which is
-the file HACS installs and is committed to the repository.
+the file the Marketplace installs and is committed to the repository.
 
 | Path                      | What it contains                                                             |
 | ------------------------- | ---------------------------------------------------------------------------- |
@@ -298,6 +298,6 @@ MIT, see [LICENSE](LICENSE).
 [releases-shield]: https://img.shields.io/github/release/jesmak/room-lights-card.svg?style=for-the-badge
 [release-date-shield]: https://img.shields.io/github/release-date/jesmak/room-lights-card?style=for-the-badge
 [releases]: https://github.com/jesmak/room-lights-card/releases
-[hacs-shield]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
-[hacs]: https://hacs.xyz/docs/faq/custom_repositories/
+[marketplace-shield]: https://img.shields.io/badge/Marketplace-Custom-orange.svg?style=for-the-badge
+[marketplace]: https://my.home-assistant.io/redirect/marketplace_repository/?owner=jesmak&repository=room-lights-card&category=plugin
 [license-shield]: https://img.shields.io/github/license/jesmak/room-lights-card.svg?style=for-the-badge
