@@ -11,14 +11,14 @@ import { ScrollFade, fadeStyles } from "./fade";
 import "./editor";
 import type { HassEntity, HomeAssistant } from "./hass";
 import { gridMinRows, heightCardSize, heightStyle, validHeight } from "./height";
-import { fillLimit, filledHeight, filledStyle, validRowStep } from "./rows";
+import { drawnScale, fillLimit, filledHeight, filledStyle, spareRoom, validRowStep } from "./rows";
 import {
     areaLights,
     areaScenes,
     brightnessPct,
     domainOf,
     firstArea,
-    friendlyName,
+    entityName,
     isDimmable,
     isOn,
     isUnavailable,
@@ -306,14 +306,14 @@ export class RoomLightsCard extends LitElement {
             return;
         }
         const style = getComputedStyle(card);
+        // The drawn distance unscaled, as the padding, border and spare room taken from it are the layout's.
         const content =
-            last.getBoundingClientRect().bottom -
-            card.getBoundingClientRect().top +
+            (last.getBoundingClientRect().bottom - card.getBoundingClientRect().top) / drawnScale(card) +
             (parseFloat(style.paddingBottom) || 0) +
             (parseFloat(style.borderBottomWidth) || 0) -
             this.spare;
-        const filled = filledHeight(Math.round(content), this.config ?? {}, limit);
-        const spare = Math.max(0, Math.floor(filled - content));
+        const filled = filledHeight(content, this.config ?? {}, limit);
+        const spare = spareRoom(filled, content);
         if (filled !== this.filled) this.filled = filled;
         if (spare !== this.spare) this.spare = spare;
     }
@@ -553,7 +553,7 @@ export class RoomLightsCard extends LitElement {
     /** A scene as a named button with the room's, or as an icon on a light's row. */
     private sceneButton(scene: SceneConfig, named: boolean): TemplateResult {
         const entity = this.hass?.states[scene.entity];
-        const name = scene.name || (this.hass ? friendlyName(this.hass, scene.entity) : scene.entity);
+        const name = scene.name || (this.hass ? entityName(this.hass, scene.entity) : scene.entity);
         const icon = scene.icon
             ? html`<ha-icon .icon=${scene.icon}></ha-icon>`
             : entity

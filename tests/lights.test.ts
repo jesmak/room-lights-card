@@ -4,6 +4,7 @@ import {
     areaLights,
     areaScenes,
     brightnessPct,
+    entityName,
     firstArea,
     isDimmable,
     lightColor,
@@ -302,6 +303,14 @@ describe("names", () => {
     it("falls back to the friendly name without formatEntityName", () => {
         const old = { ...hass, formatEntityName: undefined };
         expect(lightName(old, "light.ceiling_office_ring", OFFICE, "Office")).toBe("Ceiling Ring");
+    });
+
+    it("names any entity, such as a scene, as Home Assistant composes it, with its friendly name or id as the fallback", () => {
+        const scene = { entity_id: "scene.evening", state: "unknown", attributes: { friendly_name: "Old name" } };
+        const composed = { ...hass, states: { ...hass.states, [scene.entity_id]: scene }, formatEntityName: () => "Evening" };
+        expect(entityName(composed, "scene.evening")).toBe("Evening");
+        expect(entityName({ ...composed, formatEntityName: undefined }, "scene.evening")).toBe("Old name");
+        expect(entityName(composed, "scene.gone")).toBe("scene.gone");
     });
 });
 

@@ -549,18 +549,25 @@ describe("room-lights-card", () => {
         expect(root(element).querySelector("ha-card")!.getAttribute("style") ?? "").toBe(style);
     });
 
-    // happy-dom lays nothing out, so the body's last part ends where `bottom` says, under 7 px of padding and a 1 px border.
+    // happy-dom lays nothing out, so the body's last part ends where `bottom` says, under 7 px of padding and a 1 px border,
+    // drawn at `scale`, as a dialog opening draws the card.
     it.each([
-        ["under its limit, on the rows its content needs", 200, "max-height: 376px; min-height: 248px", "--rlc-spare: 40px"],
-        ["over its limit, on the limit rounded down to the rows", 600, "max-height: 376px; min-height: 376px", ""],
-    ])("grows up to a limit on automatic rows %s", async (_name, bottom, style, spare) => {
+        ["under its limit, on the rows its content needs", 200, 1, "max-height: 376px; min-height: 248px", "--rlc-spare: 40px"],
+        ["over its limit, on the limit rounded down to the rows", 600, 1, "max-height: 376px; min-height: 376px", ""],
+        ["a fraction of a pixel over a row, on the next one", 112.4, 1, "max-height: 376px; min-height: 184px", "--rlc-spare: 63px"],
+        ["drawn scaled, in the layout's pixels", 208, 0.8, "max-height: 376px; min-height: 248px", "--rlc-spare: 32px"],
+    ])("grows up to a limit on automatic rows %s", async (_name, bottom, scale, style, spare) => {
         const element = await card(makeHass(), { ...OFFICE, max_height: 400, grid_options: { rows: "auto" } }, "grid");
         const haCard = root(element).querySelector<HTMLElement>("ha-card")!;
         Object.defineProperty(haCard, "clientWidth", { value: 460, configurable: true });
-        haCard.getBoundingClientRect = () => ({ top: 0 }) as DOMRect;
+        haCard.getBoundingClientRect = () => ({ top: 0, width: 460 * scale }) as DOMRect;
         const body = root(element).querySelector<HTMLElement>(".body")!;
-        (body.lastElementChild as HTMLElement).getBoundingClientRect = () => ({ bottom }) as DOMRect;
-        vi.spyOn(window, "getComputedStyle").mockReturnValue({ paddingBottom: "7px", borderBottomWidth: "1px" } as CSSStyleDeclaration);
+        (body.lastElementChild as HTMLElement).getBoundingClientRect = () => ({ bottom: bottom * scale }) as DOMRect;
+        vi.spyOn(window, "getComputedStyle").mockReturnValue({
+            paddingBottom: "7px",
+            borderBottomWidth: "1px",
+            width: "460px",
+        } as CSSStyleDeclaration);
         (element as unknown as { fillRows(): void }).fillRows();
         vi.restoreAllMocks();
         await element.updateComplete;

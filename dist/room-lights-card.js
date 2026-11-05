@@ -749,8 +749,17 @@ function validRowStep(config) {
   return config.row_step === void 0 || config.row_step === null || ROW_STEPS.includes(config.row_step);
 }
 var step = (config) => config.row_step === "half" ? ROW_PX / 2 : ROW_PX;
+var SLACK_PX = 0.01;
+function drawnScale(card) {
+  const layout = Number.parseFloat(getComputedStyle(card).width) || 0;
+  const drawn = card.getBoundingClientRect().width;
+  return layout > 0 && drawn > 0 ? drawn / layout : 1;
+}
 function filledHeight(content, config, limit = Infinity) {
-  return Math.min(Math.max(1, Math.ceil((content + ROW_GAP_PX) / step(config))) * step(config) - ROW_GAP_PX, limit);
+  return Math.min(Math.max(1, Math.ceil((content - SLACK_PX + ROW_GAP_PX) / step(config))) * step(config) - ROW_GAP_PX, limit);
+}
+function spareRoom(filled, content) {
+  return Math.max(0, Math.floor(filled - content + SLACK_PX));
 }
 function fillLimit(config, layout, minimum = 0) {
   const rows = config.grid_options ? config.grid_options.rows : config.layout_options?.grid_rows;
@@ -932,7 +941,7 @@ function areaLights(hass, area) {
   }
   const lights = Object.values(hass.entities ?? {}).filter((entry) => !!entry && domainOf(entry.entity_id) === "light" && !entry.hidden && !entry.entity_category).map((entry) => entry.entity_id).filter((id) => hass.states[id] && areaOf(hass, id) === area);
   const replaced = new Set(lights.filter((id) => groupKind(hass, id) === "stands-in").flatMap((id) => membersOf(hass.states[id])));
-  return lights.filter((id) => !replaced.has(id) && groupKind(hass, id) !== "left-out").sort((a3, b3) => friendlyName(hass, a3).localeCompare(friendlyName(hass, b3)));
+  return lights.filter((id) => !replaced.has(id) && groupKind(hass, id) !== "left-out").sort((a3, b3) => entityName(hass, a3).localeCompare(entityName(hass, b3)));
 }
 function areaScenes(hass, area, lights, scripts = {}) {
   const scenes = Object.keys(hass.states).filter((id) => ["scene", "script"].includes(domainOf(id)));
@@ -943,10 +952,11 @@ function areaScenes(hass, area, lights, scripts = {}) {
     }
     return areaOf(hass, id) === area || targetsOf(hass.states[id], scripts).some((target) => lights.some((light) => touches(hass, light, target)));
   }) : scenes.filter((id) => sceneAreas(hass, id, scripts).size >= 2);
-  return chosen.sort((a3, b3) => friendlyName(hass, a3).localeCompare(friendlyName(hass, b3)));
+  return chosen.sort((a3, b3) => entityName(hass, a3).localeCompare(entityName(hass, b3)));
 }
-function friendlyName(hass, entityId) {
-  const name = hass.states[entityId]?.attributes.friendly_name;
+function entityName(hass, entityId) {
+  const state = hass.states[entityId];
+  const name = state && hass.formatEntityName?.(state, [{ type: "device" }, { type: "entity" }]) || state?.attributes.friendly_name;
   return typeof name === "string" && name ? name : entityId;
 }
 function lightName(hass, entityId, lights, areaName) {
@@ -960,7 +970,7 @@ function lightName(hass, entityId, lights, areaName) {
   if (hass.formatEntityName) {
     name = (alone ? hass.formatEntityName(state, [{ type: "device" }]) : "") || hass.formatEntityName(state, [{ type: "device" }, { type: "entity" }]);
   }
-  name = name || friendlyName(hass, entityId);
+  name = name || entityName(hass, entityId);
   return withoutArea(name, areaName);
 }
 var SEPARATORS = "\\s,|/\\-\u2013\u2014";
@@ -1389,7 +1399,7 @@ registry.customCards.push({
   preview: true
 });
 var NARROW_PX = 280;
-var SLACK_PX = 0.01;
+var SLACK_PX2 = 0.01;
 function px(value) {
   return Number.parseFloat(value ?? "") || 0;
 }
@@ -1554,7 +1564,7 @@ var RoomLightsCard = class extends i4 {
       const bar = Math.max(0, ...parts.map((part) => px(getComputedStyle(part).height)));
       const beside = Math.max(boxHeightAt(label, column), bar);
       const above = boxHeightAt(label, width) + gap + bar;
-      return words[index] <= column + SLACK_PX && beside <= above + SLACK_PX;
+      return words[index] <= column + SLACK_PX2 && beside <= above + SLACK_PX2;
     });
     bars.classList.toggle("above", wasAbove);
     bars.style.height = "";
@@ -1593,9 +1603,9 @@ var RoomLightsCard = class extends i4 {
       return;
     }
     const style = getComputedStyle(card);
-    const content = last.getBoundingClientRect().bottom - card.getBoundingClientRect().top + (parseFloat(style.paddingBottom) || 0) + (parseFloat(style.borderBottomWidth) || 0) - this.spare;
-    const filled = filledHeight(Math.round(content), this.config ?? {}, limit);
-    const spare = Math.max(0, Math.floor(filled - content));
+    const content = (last.getBoundingClientRect().bottom - card.getBoundingClientRect().top) / drawnScale(card) + (parseFloat(style.paddingBottom) || 0) + (parseFloat(style.borderBottomWidth) || 0) - this.spare;
+    const filled = filledHeight(content, this.config ?? {}, limit);
+    const spare = spareRoom(filled, content);
     if (filled !== this.filled) this.filled = filled;
     if (spare !== this.spare) this.spare = spare;
   }
@@ -1790,7 +1800,7 @@ var RoomLightsCard = class extends i4 {
   /** A scene as a named button with the room's, or as an icon on a light's row. */
   sceneButton(scene, named) {
     const entity = this.hass?.states[scene.entity];
-    const name = scene.name || (this.hass ? friendlyName(this.hass, scene.entity) : scene.entity);
+    const name = scene.name || (this.hass ? entityName(this.hass, scene.entity) : scene.entity);
     const icon = scene.icon ? b2`<ha-icon .icon=${scene.icon}></ha-icon>` : entity ? b2`<ha-state-icon .hass=${this.hass} .stateObj=${entity}></ha-state-icon>` : b2`<ha-icon icon="mdi:palette"></ha-icon>`;
     const flashed = this.flashed === scene.entity ? "flash" : "";
     const activate = () => this.activate(scene.entity);

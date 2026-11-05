@@ -214,7 +214,7 @@ export function areaLights(hass: HomeAssistant, area: string | undefined): strin
     const replaced = new Set(lights.filter((id) => groupKind(hass, id) === "stands-in").flatMap((id) => membersOf(hass.states[id])));
     return lights
         .filter((id) => !replaced.has(id) && groupKind(hass, id) !== "left-out")
-        .sort((a, b) => friendlyName(hass, a).localeCompare(friendlyName(hass, b)));
+        .sort((a, b) => entityName(hass, a).localeCompare(entityName(hass, b)));
 }
 
 /**
@@ -236,11 +236,13 @@ export function areaScenes(hass: HomeAssistant, area: string | undefined, lights
               );
           })
         : scenes.filter((id) => sceneAreas(hass, id, scripts).size >= 2);
-    return chosen.sort((a, b) => friendlyName(hass, a).localeCompare(friendlyName(hass, b)));
+    return chosen.sort((a, b) => entityName(hass, a).localeCompare(entityName(hass, b)));
 }
 
-export function friendlyName(hass: HomeAssistant, entityId: string): string {
-    const name = hass.states[entityId]?.attributes.friendly_name;
+/** An entity's name as Home Assistant composes it from its device's and its own, or its friendly name before 2025.10. */
+export function entityName(hass: HomeAssistant, entityId: string): string {
+    const state = hass.states[entityId];
+    const name = (state && hass.formatEntityName?.(state, [{ type: "device" }, { type: "entity" }])) || state?.attributes.friendly_name;
     return typeof name === "string" && name ? name : entityId;
 }
 
@@ -261,7 +263,7 @@ export function lightName(hass: HomeAssistant, entityId: string, lights: string[
             (alone ? hass.formatEntityName(state, [{ type: "device" }]) : "") ||
             hass.formatEntityName(state, [{ type: "device" }, { type: "entity" }]);
     }
-    name = name || friendlyName(hass, entityId);
+    name = name || entityName(hass, entityId);
     return withoutArea(name, areaName);
 }
 
