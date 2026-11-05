@@ -41,7 +41,7 @@ export interface HomeAssistant {
     locale?: { language?: string };
     callService(domain: string, service: string, data?: Record<string, unknown>): Promise<unknown>;
     callWS?<T>(message: Record<string, unknown>): Promise<T>;
-    /** Present in Home Assistant 2025.11 and later. */
+    /** Present in Home Assistant 2025.10 and later. */
     formatEntityName?(state: HassEntity, parts: NamePart[]): string;
 }
 

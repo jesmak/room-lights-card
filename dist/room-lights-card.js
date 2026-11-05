@@ -1,4 +1,4 @@
-/*! room-lights-card 1.1.0 | MIT License */
+/*! room-lights-card 1.1.1 | MIT License */
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __decorateClass = (decorators, target, key, kind) => {
@@ -604,7 +604,7 @@ function r5(r6) {
 }
 
 // src/const.ts
-var CARD_VERSION = "1.1.0";
+var CARD_VERSION = "1.1.1";
 var DEFAULT_ICON = "mdi:lightbulb-group";
 var KEY_STEP = 5;
 var PAGE_STEP = 10;
@@ -1514,9 +1514,9 @@ var RoomLightsCard = class extends i4 {
   fillRowsSoon() {
     cancelAnimationFrame(this.frame ?? 0);
     this.frame = requestAnimationFrame(() => {
-      this.measureWidth();
-      this.measureLabels();
-      this.fillRows();
+      if (this.measureWidth() && this.measureLabels()) {
+        this.fillRows();
+      }
     });
   }
   /**
@@ -1525,14 +1525,14 @@ var RoomLightsCard = class extends i4 {
    * narrowest, or a row would be taller there than with its name above the bar. The bars share one grid, so they start
    * and end on the same lines, and all the names go above when one doesn't fit. The grid is held to its drawn height
    * meanwhile, its overflow clipped, so nothing around it moves. Held, the card keeps its container query instead, as
-   * its names are cut short on one line and can't tell whether they fit.
+   * its names are cut short on one line and can't tell whether they fit. Returns false when the layout changed.
    */
   measureLabels() {
     const card = this.renderRoot.querySelector("ha-card");
     const bars = card?.querySelector(".bars");
     const labels = bars ? [...bars.querySelectorAll(".label")] : [];
     if (!card?.clientWidth || !bars || this.heightStyle() || !labels.length) {
-      return;
+      return true;
     }
     const body = card.querySelector(".body");
     bars.style.height = `${Math.round(px(getComputedStyle(bars).height) * 64) / 64}px`;
@@ -1560,17 +1560,22 @@ var RoomLightsCard = class extends i4 {
     bars.style.height = "";
     bars.style.overflow = "";
     body?.style.removeProperty("overflow-anchor");
-    if (this.above !== !fits) {
-      this.above = !fits;
-    }
+    if (this.above === !fits) return true;
+    this.above = !fits;
+    return false;
   }
-  /** Keeps the layout the card's content width gives it. A hidden card, with no width, keeps the last. */
+  /**
+   * Keeps the layout the card's content width gives it. A hidden card, with no width, keeps the last. Returns false when
+   * the layout changed.
+   */
   measureWidth() {
     const card = this.renderRoot.querySelector("ha-card");
-    if (!card?.clientWidth) return;
+    if (!card?.clientWidth) return true;
     const style = getComputedStyle(card);
     const narrow = card.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0) < NARROW_PX;
-    if (narrow !== this.narrow) this.narrow = narrow;
+    if (narrow === this.narrow) return true;
+    this.narrow = narrow;
+    return false;
   }
   /**
    * On automatic rows in a sections view, the card takes the whole rows its content needs, or the half rows with
@@ -1905,6 +1910,8 @@ var RoomLightsCard = class extends i4 {
                  * makes the whole padding invalid. What such a border changes, fillRows takes up.
                  */
                 ha-card {
+                    /* ha-card's own transition covers every property, so a change in the rows filled would animate. */
+                    transition: none;
                     box-sizing: border-box;
                     display: flex;
                     flex-direction: column;

@@ -219,9 +219,11 @@ export class RoomLightsCard extends LitElement {
     private fillRowsSoon(): void {
         cancelAnimationFrame(this.frame ?? 0);
         this.frame = requestAnimationFrame(() => {
-            this.measureWidth();
-            this.measureLabels();
-            this.fillRows();
+            // A layout that changes is drawn on the next render, which measures again. Rows filled to the one still drawn
+            // would hold the card at a wrong height for a frame.
+            if (this.measureWidth() && this.measureLabels()) {
+                this.fillRows();
+            }
         });
     }
 
@@ -231,14 +233,14 @@ export class RoomLightsCard extends LitElement {
      * narrowest, or a row would be taller there than with its name above the bar. The bars share one grid, so they start
      * and end on the same lines, and all the names go above when one doesn't fit. The grid is held to its drawn height
      * meanwhile, its overflow clipped, so nothing around it moves. Held, the card keeps its container query instead, as
-     * its names are cut short on one line and can't tell whether they fit.
+     * its names are cut short on one line and can't tell whether they fit. Returns false when the layout changed.
      */
-    private measureLabels(): void {
+    private measureLabels(): boolean {
         const card = this.renderRoot.querySelector<HTMLElement>("ha-card");
         const bars = card?.querySelector<HTMLElement>(".bars");
         const labels = bars ? [...bars.querySelectorAll<HTMLElement>(".label")] : [];
         if (!card?.clientWidth || !bars || this.heightStyle() || !labels.length) {
-            return;
+            return true;
         }
         const body = card.querySelector<HTMLElement>(".body");
         // A computed height has six significant digits, which can fall short of the 1/64 px a browser lays out in, and the
@@ -269,18 +271,23 @@ export class RoomLightsCard extends LitElement {
         bars.style.height = "";
         bars.style.overflow = "";
         body?.style.removeProperty("overflow-anchor");
-        if (this.above !== !fits) {
-            this.above = !fits;
-        }
+        if (this.above === !fits) return true;
+        this.above = !fits;
+        return false;
     }
 
-    /** Keeps the layout the card's content width gives it. A hidden card, with no width, keeps the last. */
-    private measureWidth(): void {
+    /**
+     * Keeps the layout the card's content width gives it. A hidden card, with no width, keeps the last. Returns false when
+     * the layout changed.
+     */
+    private measureWidth(): boolean {
         const card = this.renderRoot.querySelector<HTMLElement>("ha-card");
-        if (!card?.clientWidth) return;
+        if (!card?.clientWidth) return true;
         const style = getComputedStyle(card);
         const narrow = card.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0) < NARROW_PX;
-        if (narrow !== this.narrow) this.narrow = narrow;
+        if (narrow === this.narrow) return true;
+        this.narrow = narrow;
+        return false;
     }
 
     /**
@@ -715,6 +722,8 @@ export class RoomLightsCard extends LitElement {
                  * makes the whole padding invalid. What such a border changes, fillRows takes up.
                  */
                 ha-card {
+                    /* ha-card's own transition covers every property, so a change in the rows filled would animate. */
+                    transition: none;
                     box-sizing: border-box;
                     display: flex;
                     flex-direction: column;
