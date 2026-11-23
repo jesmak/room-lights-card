@@ -761,6 +761,10 @@ function filledHeight(content, config, limit = Infinity) {
 function spareRoom(filled, content) {
   return Math.max(0, Math.floor(filled - content + SLACK_PX));
 }
+function heldSpare(held, content) {
+  const spare = spareRoom(held, content);
+  return spare < ROW_PX ? spare : 0;
+}
 function fillLimit(config, layout, minimum = 0) {
   const rows = config.grid_options ? config.grid_options.rows : config.layout_options?.grid_rows;
   if (layout !== "grid" || typeof rows === "number") {
@@ -1591,19 +1595,30 @@ var RoomLightsCard = class extends i4 {
    * On automatic rows in a sections view, the card takes the whole rows its content needs, or the half rows with
    * `row_step: half`, so the cards under it stay on the rows, up to the limit of a card that grows up to one. Its parts step in half a row, so what is left over is half
    * a row at most, none with half rows, and it goes between the header and the content rather than under the content. The content is measured to the end of the body's last part,
-   * less the room already added, never by the card's own height, which is at least the rows already taken.
+   * less the room already added, never by the card's own height, which is at least the rows already taken. A card held
+   * to a height that leaves less than a row over its content puts that room between the header and the content too,
+   * and more under the content.
    */
   fillRows() {
     const card = this.renderRoot.querySelector("ha-card");
-    const last = this.renderRoot.querySelector(".body")?.lastElementChild;
+    const body = this.renderRoot.querySelector(".body");
+    const last = body?.lastElementChild;
     const limit = fillLimit(this.config ?? {}, this.layout, this.minimumHeight());
-    if (!card || !last || !card.clientWidth || !limit) {
+    const held = !limit && Boolean(this.heightStyle());
+    if (!card || !body || !last || !card.clientWidth || !limit && !held) {
       if (this.filled) this.filled = 0;
       if (this.spare) this.spare = 0;
       return;
     }
     const style = getComputedStyle(card);
-    const content = (last.getBoundingClientRect().bottom - card.getBoundingClientRect().top) / drawnScale(card) + (parseFloat(style.paddingBottom) || 0) + (parseFloat(style.borderBottomWidth) || 0) - this.spare;
+    const scale = drawnScale(card);
+    const content = (last.getBoundingClientRect().bottom - card.getBoundingClientRect().top) / scale + body.scrollTop + (parseFloat(style.paddingBottom) || 0) + (parseFloat(style.borderBottomWidth) || 0) - this.spare;
+    if (held) {
+      const spare2 = heldSpare(card.getBoundingClientRect().height / scale, content);
+      if (this.filled) this.filled = 0;
+      if (spare2 !== this.spare) this.spare = spare2;
+      return;
+    }
     const filled = filledHeight(content, this.config ?? {}, limit);
     const spare = spareRoom(filled, content);
     if (filled !== this.filled) this.filled = filled;

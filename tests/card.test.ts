@@ -575,6 +575,32 @@ describe("room-lights-card", () => {
         expect(root(element).querySelector(".body")!.getAttribute("style")).toBe(spare);
     });
 
+    // Held to 300 px, the room left over goes between the header and the content while it is less than a row, and
+    // otherwise under the content. A scrolled body counts at its whole length.
+    it.each([
+        ["a little room under the header", 260, 0, "--rlc-spare: 32px"],
+        ["a row or more under the content", 200, 0, ""],
+        ["nothing for a scrolled body longer than the card", 280, 100, ""],
+    ])("held to a height, puts %s", async (_name, bottom, scrolled, spare) => {
+        const element = await card(makeHass(), { ...OFFICE, height: 300, grid_options: { rows: "auto" } }, "grid");
+        const haCard = root(element).querySelector<HTMLElement>("ha-card")!;
+        Object.defineProperty(haCard, "clientWidth", { value: 460, configurable: true });
+        haCard.getBoundingClientRect = () => ({ top: 0, width: 460, height: 300 }) as DOMRect;
+        const body = root(element).querySelector<HTMLElement>(".body")!;
+        Object.defineProperty(body, "scrollTop", { value: scrolled, configurable: true });
+        (body.lastElementChild as HTMLElement).getBoundingClientRect = () => ({ bottom }) as DOMRect;
+        vi.spyOn(window, "getComputedStyle").mockReturnValue({
+            paddingBottom: "7px",
+            borderBottomWidth: "1px",
+            width: "460px",
+        } as CSSStyleDeclaration);
+        (element as unknown as { fillRows(): void }).fillRows();
+        vi.restoreAllMocks();
+        await element.updateComplete;
+        expect(haCard.getAttribute("style")).toBe("height: 300px");
+        expect(root(element).querySelector(".body")!.getAttribute("style")).toBe(spare);
+    });
+
     /** The card's body, taller than the room it has, as happy-dom lays nothing out. */
     async function overflowing(element: RoomLightsCard): Promise<HTMLElement> {
         const body = root(element).querySelector(".body") as HTMLElement;

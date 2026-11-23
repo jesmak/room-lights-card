@@ -11,7 +11,7 @@ import { ScrollFade, fadeStyles } from "./fade";
 import "./editor";
 import type { HassEntity, HomeAssistant } from "./hass";
 import { gridMinRows, heightCardSize, heightStyle, validHeight } from "./height";
-import { drawnScale, fillLimit, filledHeight, filledStyle, spareRoom, validRowStep } from "./rows";
+import { drawnScale, fillLimit, filledHeight, filledStyle, heldSpare, spareRoom, validRowStep } from "./rows";
 import {
     areaLights,
     areaScenes,
@@ -294,24 +294,36 @@ export class RoomLightsCard extends LitElement {
      * On automatic rows in a sections view, the card takes the whole rows its content needs, or the half rows with
      * `row_step: half`, so the cards under it stay on the rows, up to the limit of a card that grows up to one. Its parts step in half a row, so what is left over is half
      * a row at most, none with half rows, and it goes between the header and the content rather than under the content. The content is measured to the end of the body's last part,
-     * less the room already added, never by the card's own height, which is at least the rows already taken.
+     * less the room already added, never by the card's own height, which is at least the rows already taken. A card held
+     * to a height that leaves less than a row over its content puts that room between the header and the content too,
+     * and more under the content.
      */
     private fillRows(): void {
         const card = this.renderRoot.querySelector<HTMLElement>("ha-card");
-        const last = this.renderRoot.querySelector<HTMLElement>(".body")?.lastElementChild;
+        const body = this.renderRoot.querySelector<HTMLElement>(".body");
+        const last = body?.lastElementChild;
         const limit = fillLimit(this.config ?? {}, this.layout, this.minimumHeight());
-        if (!card || !last || !card.clientWidth || !limit) {
+        const held = !limit && Boolean(this.heightStyle());
+        if (!card || !body || !last || !card.clientWidth || (!limit && !held)) {
             if (this.filled) this.filled = 0;
             if (this.spare) this.spare = 0;
             return;
         }
         const style = getComputedStyle(card);
-        // The drawn distance unscaled, as the padding, border and spare room taken from it are the layout's.
+        const scale = drawnScale(card);
+        // The drawn distance unscaled, as the padding, border, scroll and spare room taken from it are the layout's.
         const content =
-            (last.getBoundingClientRect().bottom - card.getBoundingClientRect().top) / drawnScale(card) +
+            (last.getBoundingClientRect().bottom - card.getBoundingClientRect().top) / scale +
+            body.scrollTop +
             (parseFloat(style.paddingBottom) || 0) +
             (parseFloat(style.borderBottomWidth) || 0) -
             this.spare;
+        if (held) {
+            const spare = heldSpare(card.getBoundingClientRect().height / scale, content);
+            if (this.filled) this.filled = 0;
+            if (spare !== this.spare) this.spare = spare;
+            return;
+        }
         const filled = filledHeight(content, this.config ?? {}, limit);
         const spare = spareRoom(filled, content);
         if (filled !== this.filled) this.filled = filled;
