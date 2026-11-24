@@ -1,12 +1,15 @@
 /**
  * The card's visual editor: the area, with a button that fills in its lights and scenes, the name and icon, the lights
- * and scenes themselves, Adaptive Lighting's switch, what turning the room on does, and how the card rounds its height
- * on automatic rows. Its height mode is set in YAML only.
+ * and scenes themselves, Adaptive Lighting's switch, what turning the room on does, how the card rounds its height
+ * on automatic rows, and how its lights and scenes show that there are more when they scroll. Its height mode is set in
+ * YAML only.
  */
 import { LitElement, css, html, nothing } from "lit";
 import type { CSSResultGroup, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
+import { DEFAULT_SCROLL_INDICATOR } from "./const";
+import { scrollIndicatorData, scrollIndicatorSchema, tidyScrollIndicator } from "./fade";
 import type { HomeAssistant } from "./hass";
 import { rowStepData, rowStepSchema, tidyRowStep } from "./rows";
 import { areaLights, areaScenes, domainOf, isDimmable, lightName, lightsIn, lightsOf, scenesOf } from "./lights";
@@ -149,10 +152,10 @@ export class RoomLightsCardEditor extends LitElement {
                     ? [{ name: "turn_on_scene", selector: { entity: { filter: [{ domain: ["scene", "script"] }] } } }]
                     : []),
             ])}
-            ${this.form(
-                rowStepData(this.config),
-                rowStepSchema(this.config, (key) => this.text(key)),
-            )}
+            ${this.form(scrollIndicatorData(rowStepData(this.config), DEFAULT_SCROLL_INDICATOR), [
+                ...rowStepSchema(this.config, (key) => this.text(key)),
+                ...scrollIndicatorSchema((key) => this.text(key)),
+            ])}
         `;
     }
 
@@ -262,7 +265,7 @@ export class RoomLightsCardEditor extends LitElement {
     }
 
     private valueChanged(event: CustomEvent<{ value: RoomLightsCardConfig }>): void {
-        this.changed(tidyRowStep({ ...this.config, ...event.detail.value }));
+        this.changed(tidyScrollIndicator(tidyRowStep({ ...this.config, ...event.detail.value }), DEFAULT_SCROLL_INDICATOR));
     }
 
     private async fill(): Promise<void> {

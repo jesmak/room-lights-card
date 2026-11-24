@@ -6,8 +6,8 @@ import { LitElement, css, html, nothing } from "lit";
 import type { CSSResultGroup, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
-import { CARD_VERSION, DEFAULT_ICON, KEY_DELAY_MS, KEY_STEP, PAGE_STEP } from "./const";
-import { ScrollFade, fadeStyles } from "./fade";
+import { CARD_VERSION, DEFAULT_ICON, DEFAULT_SCROLL_INDICATOR, KEY_DELAY_MS, KEY_STEP, PAGE_STEP } from "./const";
+import { ScrollFade, fadeStyles, scrollIndicator, validScrollIndicator } from "./fade";
 import "./editor";
 import type { HassEntity, HomeAssistant } from "./hass";
 import { gridMinRows, heightCardSize, heightStyle, validHeight } from "./height";
@@ -126,7 +126,11 @@ export class RoomLightsCard extends LitElement {
     constructor() {
         super();
         // Fades the body's edges while the card is held to a height, through the card's own lifecycle.
-        new ScrollFade(this, () => (this.heightStyle() ? this.renderRoot.querySelectorAll<HTMLElement>(".body") : []));
+        new ScrollFade(
+            this,
+            () => (this.heightStyle() ? this.renderRoot.querySelectorAll<HTMLElement>(".body") : []),
+            () => scrollIndicator(this.config ?? {}, DEFAULT_SCROLL_INDICATOR),
+        );
     }
 
     public static getConfigElement(): HTMLElement {
@@ -156,6 +160,9 @@ export class RoomLightsCard extends LitElement {
         }
         if (!validRowStep(config)) {
             throw new Error(translate(browserLanguage(), "common.invalid_row_step"));
+        }
+        if (!validScrollIndicator(config)) {
+            throw new Error(translate(browserLanguage(), "common.invalid_scroll_indicator"));
         }
         if (config.turn_on !== undefined && config.turn_on !== null && !TURN_ONS.includes(config.turn_on)) {
             throw new Error(translate(browserLanguage(), "common.invalid_turn_on"));

@@ -1,9 +1,14 @@
+import type { ScrollIndicator } from "./fade";
+
 /** Replaced at build time with the version in package.json. */
 declare const __CARD_VERSION__: string;
 
 export const CARD_VERSION = __CARD_VERSION__;
 
 export const DEFAULT_ICON = "mdi:lightbulb-group";
+
+/** A held card's lights and scenes show both their fading edges and a thin scrollbar. */
+export const DEFAULT_SCROLL_INDICATOR: ScrollIndicator = "both";
 
 /** How far an arrow key moves a brightness bar, and Page Up and Page Down. */
 export const KEY_STEP = 5;

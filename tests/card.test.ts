@@ -894,6 +894,22 @@ describe("editor", () => {
         });
     });
 
+    it("leaves the default scroll indicator out of the configuration, and keeps a chosen one", () => {
+        const editor = document.createElement("room-lights-card-editor");
+        editor.hass = hass;
+        const before = { type: "custom:room-lights-card", area: "office" };
+        editor.setConfig(before);
+        const changed = vi.fn();
+        editor.addEventListener("config-changed", (event) => changed((event as CustomEvent).detail.config));
+        const valueChanged = (value: RoomLightsCardConfig) =>
+            (editor as unknown as { valueChanged(event: { detail: { value: RoomLightsCardConfig } }): void }).valueChanged({
+                detail: { value },
+            });
+        valueChanged({ ...before, scroll_indicator: "both" });
+        valueChanged({ ...before, scroll_indicator: "scrollbar" });
+        expect(changed.mock.calls.map((call) => call[0])).toEqual([before, { ...before, scroll_indicator: "scrollbar" }]);
+    });
+
     it("writes the configuration as short as it reads the same", () => {
         expect(
             compact({

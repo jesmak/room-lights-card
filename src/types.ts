@@ -1,3 +1,4 @@
+import type { ScrollIndicatorConfig } from "./fade";
 import type { LovelaceCardConfig } from "./hass";
 import type { RowStepConfig } from "./rows";
 
@@ -19,7 +20,7 @@ export interface SceneConfig {
 
 export type TurnOn = "all" | "lights" | "scene";
 
-export interface RoomLightsCardConfig extends LovelaceCardConfig, RowStepConfig {
+export interface RoomLightsCardConfig extends LovelaceCardConfig, RowStepConfig, ScrollIndicatorConfig {
     /** The area the card shows. Without one, the card holds what belongs to no single room. */
     area?: string;
     name?: string;
