@@ -41,6 +41,8 @@ describe("languages", () => {
         expect(translate("fi", "common.name")).toBe("Huoneen valot");
         expect(translate("xx", "common.name")).toBe(translate("en", "common.name"));
         expect(translate("fi-FI", "common.name")).toBe("Huoneen valot");
+        expect(translate("fi_FI", "common.name")).toBe("Huoneen valot");
+        expect(translate("xx-YY", "common.name")).toBe(translate("en", "common.name"));
         expect(translate("fi", "no.such.key")).toBe("no.such.key");
     });
 });
